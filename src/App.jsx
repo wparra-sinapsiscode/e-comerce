@@ -26,6 +26,44 @@ function App() {
     }, 3000)
   }
 
+  // Función para cargar datos de la aplicación (solo cuando está autenticado)
+  const loadAppData = async () => {
+    try {
+      console.log('📦 APP: Iniciando carga de datos...')
+      
+      console.log('📦 APP: Cargando categorías...')
+      const categoriesResponse = await categoryService.getAll()
+      console.log('📦 APP: Respuesta completa categorías:', categoriesResponse)
+      
+      // Extraer correctamente los datos anidados
+      const categoriesArray = categoriesResponse.data?.data || []
+      console.log('📦 APP: Categorías array:', categoriesArray)
+      console.log('📦 APP: Primera categoría:', JSON.stringify(categoriesArray[0], null, 2))
+      
+      console.log('📦 APP: Cargando productos...')
+      const productsResponse = await productService.getAll()
+      console.log('📦 APP: Respuesta completa productos:', productsResponse)
+      
+      // Extraer correctamente los datos anidados
+      const productsArray = productsResponse.data?.data || []
+      console.log('📦 APP: Productos array:', productsArray)
+      
+      // Configurar los datos en el estado
+      setAppCategories(categoriesArray)
+      setAppProducts(productsArray)
+      setOrders([]) // TODO: Implementar cuando esté listo
+      setPayments([]) // TODO: Implementar cuando esté listo
+      
+      console.log('📦 APP: Datos configurados exitosamente')
+    } catch (error) {
+      console.error('📦 APP: Error cargando datos:', error)
+      // Usar datos vacíos como fallback
+      setAppCategories([])
+      setAppProducts([])
+      showToast('Error cargando datos de la aplicación', 'error')
+    }
+  }
+
   // Initialize services and load initial data
   useEffect(() => {
     const initializeApp = async () => {
@@ -40,25 +78,14 @@ function App() {
           const currentUser = authService.getCurrentUser()
           if (currentUser) {
             setCurrentUser(currentUser)
+            // Solo cargar datos si el usuario está autenticado
+            await loadAppData()
           }
         } else {
           // Token inválido o expirado, limpiar sesión
           await authService.logout()
         }
         
-        // TODO: Cargar datos cuando tengamos los endpoints en el backend
-        // const [categoriesData, productsData, ordersData, paymentsData] = await Promise.all([
-        //   categoryService.getAll(),
-        //   productService.getAll(),
-        //   orderService.getAll(),
-        //   paymentService.getAll()
-        // ])
-        
-        // Usar datos mock temporalmente
-        setAppCategories([])
-        setAppProducts([])
-        setOrders([])
-        setPayments([])
         setServicesInitialized(true)
         
       } catch (error) {
@@ -84,6 +111,8 @@ function App() {
         const user = response.data.user || authService.getCurrentUser()
         
         setCurrentUser(user)
+        // Cargar datos de la aplicación después del login exitoso
+        await loadAppData()
         showToast('¡Bienvenido!', 'success')
         return user
       } else {
@@ -127,12 +156,22 @@ function App() {
       await authService.logout()
       setCurrentUser(null)
       setCart([])
+      // Limpiar todos los datos al cerrar sesión
+      setAppCategories([])
+      setAppProducts([])
+      setOrders([])
+      setPayments([])
       showToast('Sesión cerrada correctamente', 'success')
     } catch (error) {
       console.error('Logout error:', error)
       // Still logout locally even if API call fails
       setCurrentUser(null)
       setCart([])
+      // Limpiar todos los datos al cerrar sesión
+      setAppCategories([])
+      setAppProducts([])
+      setOrders([])
+      setPayments([])
       showToast('Sesión cerrada correctamente', 'success')
     }
   }

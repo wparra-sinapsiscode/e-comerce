@@ -1112,6 +1112,22 @@ function AdminDashboard({
   paymentService,
   servicesInitialized
 }) {
+  // Debug logs para categorías y productos
+  useEffect(() => {
+    console.log('🎯 ADMIN DASHBOARD - Props recibidas:', {
+      categories,
+      products,
+      categoriesType: typeof categories,
+      productsType: typeof products,
+      isArrayCategories: Array.isArray(categories),
+      isArrayProducts: Array.isArray(products),
+      categoriesLength: categories?.length,
+      productsLength: products?.length,
+      firstCategory: categories?.[0],
+      firstProduct: products?.[0]
+    })
+  }, [categories, products])
+
   const [activeTab, setActiveTab] = useState('dashboard')
   const [orderFilter, setOrderFilter] = useState('active') // 'active', 'delivered', 'all'
   const [isLoading, setIsLoading] = useState(false)
@@ -1523,8 +1539,8 @@ function AdminDashboard({
     setEditingCategory(category)
     setCategoryForm({
       name: category.name,
-      icon: category.icon,
-      color: category.color
+      icon: category.icon || 'Package',
+      color: category.color || '#4A90E2'
     })
     setShowCategoryModal(true)
   }
@@ -1572,7 +1588,7 @@ function AdminDashboard({
         
         if (response.success) {
           const updatedCategories = categories.map(cat => 
-            cat.id === editingCategory.id ? response.category : cat
+            cat.id === editingCategory.id ? response.data.category : cat
           )
           setCategories(updatedCategories)
           showToast('Categoría actualizada correctamente', 'success')
@@ -1585,7 +1601,7 @@ function AdminDashboard({
         const response = await categoryService.create(categoryData)
         
         if (response.success) {
-          setCategories([...categories, response.category])
+          setCategories([...categories, response.data.category])
           showToast('Categoría creada correctamente', 'success')
           closeCategoryModal()
         } else {
@@ -1724,6 +1740,12 @@ function AdminDashboard({
     
     showToast('Pago rechazado - Pedido cancelado', 'error')
     closePaymentModal()
+  }
+
+  // Price formatting utility
+  const formatPrice = (price) => {
+    const numPrice = parseFloat(price)
+    return isNaN(numPrice) ? '0.00' : numPrice.toFixed(2)
   }
 
   // Icon mapping function
@@ -2004,7 +2026,7 @@ function AdminDashboard({
                 </StatIcon>
                 <StatInfo>
                   <h3>Ingresos</h3>
-                  <p>S/ {totalIncome.toFixed(2)}</p>
+                  <p>S/ {formatPrice(totalIncome)}</p>
                 </StatInfo>
               </StatCard>
             </StatCards>
@@ -2028,7 +2050,7 @@ function AdminDashboard({
                       <td>{order.id}</td>
                       <td>{order.customer}</td>
                       <td>{formatDate(order.date)}</td>
-                      <td>S/ {order.total.toFixed(2)}</td>
+                      <td>S/ {formatPrice(order.total)}</td>
                       <td><Status className={order.status}>{getStatusText(order.status)}</Status></td>
                       <td>{getOrderActions(order)}</td>
                     </tr>
@@ -2050,10 +2072,10 @@ function AdminDashboard({
             <CategoriesGrid>
               {categories.map(category => {
                 const productCount = products.filter(product => product.category_id === category.id).length
-                const IconComponent = getIconComponent(category.icon)
+                const IconComponent = getIconComponent(category.icon || 'Package')
                 return (
                   <CategoryCard key={category.id}>
-                    <CategoryIcon color={category.color}>
+                    <CategoryIcon color={category.color || '#4A90E2'}>
                       <IconComponent size={30} />
                     </CategoryIcon>
                     <h3>{category.name}</h3>
@@ -2098,7 +2120,7 @@ function AdminDashboard({
                       </ProductBadge>
                       <ProductTitle>{product.name}</ProductTitle>
                       <ProductPrice>
-                        S/ {product.price.toFixed(2)} <span>/ {product.unit}</span>
+                        S/ {formatPrice(product.price)} <span>/ {product.unit}</span>
                       </ProductPrice>
                       <ProductActions>
                         <button 
@@ -2194,7 +2216,7 @@ function AdminDashboard({
                       <td>{order.customer}</td>
                       <td>{order.customer_phone}</td>
                       <td>{formatDate(order.date)}</td>
-                      <td>S/ {order.total.toFixed(2)}</td>
+                      <td>S/ {formatPrice(order.total)}</td>
                       <td>
                         <Status style={{ 
                           background: getStatusColor(order.status), 
@@ -2240,7 +2262,7 @@ function AdminDashboard({
                       <td>{payment.order_id}</td>
                       <td>{payment.customer}</td>
                       <td>{formatDate(payment.date)}</td>
-                      <td>S/ {payment.amount.toFixed(2)}</td>
+                      <td>S/ {formatPrice(payment.amount)}</td>
                       <td>{getPaymentMethodText(payment.method)}</td>
                       <td>
                         <Status className={
@@ -2480,7 +2502,7 @@ function AdminDashboard({
                         <PresentationItem key={presentation.id}>
                           <div className="info">
                             <span className="name">{presentation.name}</span>
-                            <span className="price">S/ {presentation.price.toFixed(2)}</span>
+                            <span className="price">S/ {formatPrice(presentation.price)}</span>
                             <span className="unit">/ {presentation.unit}</span>
                           </div>
                           <div className="actions">
@@ -2660,7 +2682,7 @@ function AdminDashboard({
               </div>
               <div className="detail-row">
                 <span className="label">Monto:</span>
-                <span className="value">S/ {selectedPayment.amount.toFixed(2)}</span>
+                <span className="value">S/ {formatPrice(selectedPayment.amount)}</span>
               </div>
             </PaymentDetails>
 

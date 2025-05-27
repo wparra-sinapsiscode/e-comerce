@@ -1430,12 +1430,19 @@ function ClientStore({
     }))
   }
 
+  // Price formatting utility - ALWAYS returns a valid number
+  const formatPrice = (price) => {
+    const numPrice = Number(price) || 0
+    return numPrice.toFixed(2)
+  }
+
+  // Safe price getter - ALWAYS returns a valid number
   const getProductPrice = (product) => {
     if (product.unit === 'presentation') {
       const selectedPresentation = getSelectedPresentation(product.id)
-      return selectedPresentation?.price || product.price
+      return Number(selectedPresentation?.price) || Number(product.price) || 0
     }
-    return product.price
+    return Number(product.price) || 0
   }
 
   const getProductDisplayUnit = (product) => {
@@ -1544,7 +1551,7 @@ function ClientStore({
           {method === 'transfer' && <CreditCard size={20} />}
           {method === 'yape' && <Smartphone size={20} />}
           {method === 'plin' && <Smartphone size={20} />}
-          Datos para el pago - Total: S/ {total.toFixed(2)}
+          Datos para el pago - Total: S/ {formatPrice(total)}
         </h4>
         
         <div className="payment-info">
@@ -1951,7 +1958,7 @@ function ClientStore({
                       </ProductBadge>
                       <ProductTitle>{product.name}</ProductTitle>
                       <ProductPrice>
-                        S/ {getProductPrice(product).toFixed(2)}
+                        S/ {formatPrice(getProductPrice(product))}
                         <span className="unit">/ {getProductDisplayUnit(product)}</span>
                       </ProductPrice>
                       {product.unit === 'presentation' && (
@@ -1964,7 +1971,7 @@ function ClientStore({
                                 className={`presentation-option ${getSelectedPresentation(product.id)?.id === presentation.id ? 'selected' : ''}`}
                                 onClick={() => selectPresentation(product.id, presentation)}
                               >
-                                {presentation.name} - S/ {presentation.price.toFixed(2)}
+                                {presentation.name} - S/ {formatPrice(presentation.price)}
                               </div>
                             ))}
                           </div>
@@ -2103,7 +2110,7 @@ function ClientStore({
                     </ProductBadge>
                     <ProductTitle>{product.name}</ProductTitle>
                     <ProductPrice>
-                      S/ {getProductPrice(product).toFixed(2)}
+                      S/ {formatPrice(getProductPrice(product))}
                       <span className="unit">/ {getProductDisplayUnit(product)}</span>
                     </ProductPrice>
                     {product.unit === 'presentation' && (
@@ -2116,7 +2123,7 @@ function ClientStore({
                               className={`presentation-option ${getSelectedPresentation(product.id)?.id === presentation.id ? 'selected' : ''}`}
                               onClick={() => selectPresentation(product.id, presentation)}
                             >
-                              {presentation.name} - S/ {presentation.price.toFixed(2)}
+                              {presentation.name} - S/ {formatPrice(presentation.price)}
                             </div>
                           ))}
                         </div>
@@ -2189,7 +2196,7 @@ function ClientStore({
                   {categories.find(c => c.id === selectedProduct.category_id)?.name || 'Sin categoría'}
                 </CategoryBadge>
                 <DetailPrice>
-                  S/ {selectedProduct.price.toFixed(2)} <span>/ {selectedProduct.unit}</span>
+                  S/ {formatPrice(selectedProduct.price)} <span>/ {selectedProduct.unit}</span>
                 </DetailPrice>
                 <Description>{selectedProduct.description}</Description>
                 
@@ -2218,7 +2225,7 @@ function ClientStore({
                 
                 <TotalPrice>
                   <span>Total:</span>
-                  <span>S/ {(selectedProduct.price * productQuantity).toFixed(2)}</span>
+                  <span>S/ {formatPrice(selectedProduct.price * productQuantity)}</span>
                 </TotalPrice>
                 
                 <button 
@@ -2252,7 +2259,7 @@ function ClientStore({
                     </CartItemImage>
                     <CartItemDetails>
                       <CartItemName>{item.name}</CartItemName>
-                      <CartItemPrice>S/ {item.price.toFixed(2)} / {item.unit}</CartItemPrice>
+                      <CartItemPrice>S/ {formatPrice(item.price)} / {item.unit}</CartItemPrice>
                       <CartItemControls>
                         <QuantityControl>
                           <button 
@@ -2274,7 +2281,7 @@ function ClientStore({
                           </button>
                         </QuantityControl>
                         <div style={{ fontWeight: '500', fontSize: '16px', marginLeft: 'auto' }}>
-                          S/ {item.total.toFixed(2)}
+                          S/ {formatPrice(item.total)}
                         </div>
                         <button 
                           style={{ 
@@ -2300,15 +2307,15 @@ function ClientStore({
               <h3 style={{ marginBottom: '20px', color: 'var(--gray-dark)' }}>Resumen del pedido</h3>
               <SummaryItem>
                 <span>Subtotal:</span>
-                <span>S/ {subtotal.toFixed(2)}</span>
+                <span>S/ {formatPrice(subtotal)}</span>
               </SummaryItem>
               <SummaryItem>
                 <span>IGV (18%):</span>
-                <span>S/ {tax.toFixed(2)}</span>
+                <span>S/ {formatPrice(tax)}</span>
               </SummaryItem>
               <SummaryItem className="total">
                 <span>Total:</span>
-                <span>S/ {total.toFixed(2)}</span>
+                <span>S/ {formatPrice(total)}</span>
               </SummaryItem>
               
               <button 
@@ -2366,7 +2373,7 @@ function ClientStore({
                       </span>
                     </div>
                     <div style={{ fontSize: '18px', fontWeight: '600', color: 'var(--primary-color)' }}>
-                      S/ {order.total.toFixed(2)}
+                      S/ {formatPrice(order.total)}
                     </div>
                   </div>
                 ))}
@@ -2427,20 +2434,20 @@ function ClientStore({
                     <span className="quantity">{item.quantity}</span>
                     <span>{item.name}</span>
                   </div>
-                  <span>S/ {item.total.toFixed(2)}</span>
+                  <span>S/ {formatPrice(item.total)}</span>
                 </CheckoutSummaryItem>
               ))}
               <CheckoutSummaryItem>
                 <span>Subtotal</span>
-                <span>S/ {subtotal.toFixed(2)}</span>
+                <span>S/ {formatPrice(subtotal)}</span>
               </CheckoutSummaryItem>
               <CheckoutSummaryItem>
                 <span>IGV (18%)</span>
-                <span>S/ {tax.toFixed(2)}</span>
+                <span>S/ {formatPrice(tax)}</span>
               </CheckoutSummaryItem>
               <CheckoutSummaryItem>
                 <span>Total</span>
-                <span>S/ {total.toFixed(2)}</span>
+                <span>S/ {formatPrice(total)}</span>
               </CheckoutSummaryItem>
             </OrderSummary>
             
@@ -2549,7 +2556,7 @@ function ClientStore({
                 style={{ width: '100%', marginTop: '20px', padding: '15px' }}
               >
                 <Truck size={16} />
-                Confirmar pedido - S/ {total.toFixed(2)}
+                Confirmar pedido - S/ {formatPrice(total)}
               </button>
             </form>
           </CheckoutForm>
@@ -2584,7 +2591,7 @@ function ClientStore({
                     confirmedOrder.payment_method === 'plin' ? 'Plin' :
                     'Contraentrega'
                   }</p>
-                  <p><strong>Total:</strong> S/ {confirmedOrder.total.toFixed(2)}</p>
+                  <p><strong>Total:</strong> S/ {formatPrice(confirmedOrder.total)}</p>
                   {confirmedOrder.voucher && (
                     <p>
                       <strong>Comprobante:</strong>{' '}

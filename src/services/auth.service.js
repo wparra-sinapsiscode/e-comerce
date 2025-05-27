@@ -76,10 +76,11 @@ class AuthService {
 
     try {
       const response = await apiClient.post(API_ENDPOINTS.AUTH.LOGIN, validation.data)
+      console.log('Frontend - Login response:', response)
       
       if (response.success) {
-        // FIX: Los tokens están en response.data.data, no en response.data
-        const authData = response.data.data || response.data
+        // Los tokens están en response.data.data (doble anidación por el apiClient wrapper)
+        const authData = response.data.data
         const { access_token, refresh_token, user } = authData
         
         // Store tokens and user data
@@ -127,10 +128,10 @@ class AuthService {
       })
       
       if (response.success) {
-        const { access_token, refresh_token, user } = response.data
+        const { access_token, refresh_token, user } = response.data.data
         
-        // Verify user has admin role
-        if (user.role !== 'admin') {
+        // Verify user has admin role (backend uses ADMIN in uppercase)
+        if (user.role !== 'ADMIN') {
           return {
             success: false,
             error: { type: 'permission', message: 'Acceso no autorizado' }
@@ -319,7 +320,7 @@ class AuthService {
    */
   isAdmin() {
     const user = this.getCurrentUser()
-    return user?.role === 'admin'
+    return user?.role === 'ADMIN'
   }
 
   /**

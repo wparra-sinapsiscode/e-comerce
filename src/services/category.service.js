@@ -29,18 +29,28 @@ class CategoryService {
    * @returns {Promise<Object>} API response with categories array
    */
   async getCategories(params = {}) {
+    console.log('🌐 CATEGORY SERVICE: getCategories llamado con params:', params)
+    console.log('🌐 CATEGORY SERVICE: USE_MOCK_DATA:', FEATURE_FLAGS.USE_MOCK_DATA)
+    
     if (FEATURE_FLAGS.USE_MOCK_DATA) {
+      console.log('🌐 CATEGORY SERVICE: Usando datos mock')
       return this._getMockCategories(params)
     }
 
     const cacheKey = `${this.cachePrefix}_list_${JSON.stringify(params)}`
     const cached = cacheHelpers.get(cacheKey)
     if (cached) {
+      console.log('🌐 CATEGORY SERVICE: Devolviendo datos cacheados')
       return { success: true, data: cached, fromCache: true }
     }
 
     try {
+      console.log('🌐 CATEGORY SERVICE: Haciendo petición al backend...')
+      console.log('🌐 CATEGORY SERVICE: URL:', API_ENDPOINTS.CATEGORIES.BASE)
       const response = await apiClient.get(API_ENDPOINTS.CATEGORIES.BASE, params)
+      console.log('🌐 CATEGORY SERVICE: Respuesta del backend:', response)
+      console.log('🌐 CATEGORY SERVICE: Data:', response.data)
+      console.log('🌐 CATEGORY SERVICE: Primera categoría:', JSON.stringify(response.data?.[0], null, 2))
       
       if (response.success) {
         cacheHelpers.set(cacheKey, response.data, this.cacheTTL)
@@ -48,7 +58,7 @@ class CategoryService {
       
       return response
     } catch (error) {
-      console.error('Error fetching categories:', error)
+      console.error('🌐 CATEGORY SERVICE: Error fetching categories:', error)
       return {
         success: false,
         error: { type: 'network', message: 'Error al cargar categorías' }
@@ -399,6 +409,34 @@ class CategoryService {
    */
   async getAll(params = {}) {
     return this.getCategories(params)
+  }
+
+  /**
+   * Alias for createCategory (for AdminDashboard compatibility)
+   * @param {Object} categoryData - Category data
+   * @returns {Promise<Object>} API response with created category
+   */
+  async create(categoryData) {
+    return this.createCategory(categoryData)
+  }
+
+  /**
+   * Alias for updateCategory (for AdminDashboard compatibility)
+   * @param {number} id - Category ID
+   * @param {Object} updateData - Updated category data
+   * @returns {Promise<Object>} API response with updated category
+   */
+  async update(id, updateData) {
+    return this.updateCategory(id, updateData)
+  }
+
+  /**
+   * Alias for deleteCategory (for AdminDashboard compatibility)
+   * @param {number} id - Category ID
+   * @returns {Promise<Object>} API response
+   */
+  async delete(id) {
+    return this.deleteCategory(id)
   }
 
   /**

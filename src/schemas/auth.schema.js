@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
-// User role enum
-export const UserRoleSchema = z.enum(['admin', 'customer', 'delivery'])
+// User role enum (matching backend format)
+export const UserRoleSchema = z.enum(['ADMIN', 'CUSTOMER', 'DELIVERY'])
 
 // User schema
 export const UserSchema = z.object({
@@ -144,9 +144,9 @@ export const SessionSchema = z.object({
   last_activity: z.string().datetime(),
 })
 
-// User role permissions
+// User role permissions (matching backend uppercase roles)
 export const USER_PERMISSIONS = {
-  admin: [
+  ADMIN: [
     'products:read',
     'products:write', 
     'products:delete',
@@ -162,7 +162,7 @@ export const USER_PERMISSIONS = {
     'users:read',
     'users:write',
   ],
-  customer: [
+  CUSTOMER: [
     'products:read',
     'categories:read',
     'orders:read_own',
@@ -170,7 +170,7 @@ export const USER_PERMISSIONS = {
     'profile:read',
     'profile:write',
   ],
-  delivery: [
+  DELIVERY: [
     'orders:read_assigned',
     'orders:update_delivery_status',
     'profile:read',
