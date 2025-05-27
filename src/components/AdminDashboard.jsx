@@ -2070,8 +2070,8 @@ function AdminDashboard({
             </TabHeader>
             
             <CategoriesGrid>
-              {categories.map(category => {
-                const productCount = products.filter(product => product.category_id === category.id).length
+              {categories.filter(category => category && category.id).map(category => {
+                const productCount = products.filter(product => product && product.category_id === category.id).length
                 const IconComponent = getIconComponent(category.icon || 'Package')
                 return (
                   <CategoryCard key={category.id}>
