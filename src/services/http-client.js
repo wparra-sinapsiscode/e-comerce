@@ -21,6 +21,8 @@ const httpClient = axios.create({
   headers: DEFAULT_HEADERS,
 })
 
+console.log('🌐 API BASE URL:', API_ENDPOINTS.API_BASE)
+
 // Request interceptor for authentication and logging
 httpClient.interceptors.request.use(
   (config) => {

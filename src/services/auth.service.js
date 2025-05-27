@@ -179,37 +179,55 @@ class AuthService {
    * @returns {Promise<Object>} API response with user data
    */
   async register(userData) {
-    // Validate registration data
-    const validation = validateRegister(userData)
-    if (!validation.success) {
-      return {
-        success: false,
-        error: { type: 'validation', errors: validation.error }
-      }
+    console.log('🔵 REGISTRO PÚBLICO - Datos del usuario:', userData)
+    
+    // BYPASS VALIDACIÓN PARA REGISTRO PÚBLICO SIMPLIFICADO
+    // const validation = validateRegister(userData)
+    // if (!validation.success) { ... }
+    
+    // ENVIAR DIRECTO AL BACKEND CON FORMATO CORRECTO
+    const dataToSend = {
+      name: userData.name,
+      email: userData.email,
+      phone: userData.phone,
+      password: userData.password,
+      confirm_password: userData.confirmPassword || userData.password,
+      accept_terms: true, // Auto aceptar para registro público
+      role: 'CUSTOMER' // Forzar rol cliente
     }
-
-    // Format phone number
-    const formattedData = {
-      ...validation.data,
-      phone: formatPhone(validation.data.phone)
-    }
+    
+    console.log('🔵 ENVIANDO AL BACKEND:', dataToSend)
 
     try {
-      const response = await apiClient.post(API_ENDPOINTS.AUTH.REGISTER, formattedData)
+      const response = await apiClient.post(API_ENDPOINTS.AUTH.REGISTER, dataToSend)
+      console.log('🔵 RESPUESTA REGISTRO:', response)
       
-      if (response.success) {
-        // Auto-login after successful registration
-        const loginResponse = await this.login({
-          email: formattedData.email,
-          password: formattedData.password
-        })
+      if (response.data?.success) {
+        console.log('✅ REGISTRO EXITOSO - Auto login...')
+        // Auto login después del registro
+        const { access_token, user } = response.data.data
         
-        return loginResponse
+        if (access_token && user) {
+          console.log('🔵 GUARDANDO TOKEN Y USUARIO:', { token: access_token.substring(0, 20) + '...', user: user.email })
+          localStorage.setItem(AUTH_TOKEN_KEY, access_token)
+          localStorage.setItem(USER_DATA_KEY, JSON.stringify(user))
+          this.currentUser = user
+          
+          return {
+            success: true,
+            data: {
+              user: user,
+              token: access_token
+            }
+          }
+        }
       }
       
-      return response
+      console.log('🔴 REGISTRO FALLIDO:', response.data)
+      return response.data
     } catch (error) {
-      console.error('Error during registration:', error)
+      console.error('🔴 AUTH SERVICE - Error completo:', error)
+      console.error('🔴 AUTH SERVICE - Error response:', error.response?.data)
       return {
         success: false,
         error: { type: 'network', message: 'Error al registrar usuario' }

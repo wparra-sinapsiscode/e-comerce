@@ -200,16 +200,43 @@ function AuthPage({ login, register }) {
 
   const handleRegisterSubmit = async (e) => {
     e.preventDefault()
+    
+    console.log('🟢 FRONTEND - Iniciando registro con:', {
+      name: registerData.name,
+      email: registerData.email,
+      phone: registerData.phone,
+      hasPassword: !!registerData.password
+    })
+    
     if (registerData.name && registerData.email && registerData.phone && registerData.password) {
       if (registerData.password !== registerData.confirmPassword) {
-        // Handle password mismatch
+        console.log('🔴 FRONTEND - Error: Las contraseñas no coinciden')
         return
       }
-      const user = await register(registerData)
-      if (user) {
-        // Navegar al dashboard correspondiente después del registro exitoso
-        navigate(user.role === 'ADMIN' ? '/admin' : '/store')
+      
+      try {
+        console.log('🟢 FRONTEND - Llamando a authService.register...')
+        const response = await register(registerData)
+        console.log('🟢 FRONTEND - Respuesta completa:', response)
+        
+        if (response?.success && response?.data?.user) {
+          console.log('🟢 FRONTEND - Usuario registrado:', response.data.user)
+          console.log('🟢 FRONTEND - Rol del usuario:', response.data.user.role)
+          const targetRoute = response.data.user.role === 'ADMIN' ? '/admin' : '/store'
+          console.log('🟢 FRONTEND - Redirigiendo a:', targetRoute)
+          navigate(targetRoute)
+        } else {
+          console.error('🔴 FRONTEND - Respuesta inesperada:', response)
+          console.error('🔴 FRONTEND - Success?:', response?.success)
+          console.error('🔴 FRONTEND - Data?:', response?.data)
+        }
+      } catch (error) {
+        console.error('🔴 FRONTEND - Error catch:', error)
+        console.error('🔴 FRONTEND - Error message:', error.message)
+        console.error('🔴 FRONTEND - Error stack:', error.stack)
       }
+    } else {
+      console.log('🔴 FRONTEND - Faltan campos obligatorios')
     }
   }
 

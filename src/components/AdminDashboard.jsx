@@ -1165,7 +1165,7 @@ function AdminDashboard({
   })
   
   // Image upload states
-  const [imageInputType, setImageInputType] = useState('url') // 'url' or 'file'
+  const [imageInputType, setImageInputType] = useState('file') // Solo archivo, no URL
   const [uploadedFile, setUploadedFile] = useState(null)
   
   // Presentation management states
@@ -1393,19 +1393,32 @@ function AdminDashboard({
   }
 
   const deleteProduct = async (productId) => {
+    console.log('🗑️ DELETE PRODUCT - ID:', productId)
+    console.log('🗑️ DELETE PRODUCT - Type:', typeof productId)
+    
     if (window.confirm('¿Estás seguro de eliminar este producto?')) {
       try {
         setIsLoading(true)
+        console.log('🗑️ Llamando a productService.delete con ID:', productId)
         const response = await productService.delete(productId)
+        console.log('🗑️ DELETE RESPONSE:', response)
         
         if (response.success) {
-          setProducts(safeProducts.filter(prod => prod.id !== productId))
+          console.log('✅ Product deleted successfully')
+          // USAR CALLBACK PARA OBTENER ESTADO ACTUAL
+          setProducts(currentProducts => {
+            const filteredProducts = currentProducts.filter(prod => prod.id !== productId)
+            console.log('🗑️ PRODUCTOS ANTES DEL FILTRO:', currentProducts.length)
+            console.log('🗑️ PRODUCTOS DESPUÉS DEL FILTRO:', filteredProducts.length)
+            return filteredProducts
+          })
           showToast('Producto eliminado correctamente', 'success')
         } else {
+          console.log('❌ Delete failed:', response.error || response.message)
           showToast(response.message || 'Error al eliminar el producto', 'error')
         }
       } catch (error) {
-        console.error('Delete product error:', error)
+        console.error('❌ Delete error:', error)
         showToast('Error al eliminar el producto', 'error')
       } finally {
         setIsLoading(false)
@@ -1434,7 +1447,10 @@ function AdminDashboard({
   }
 
   const openProductModal = () => {
-    setProductForm({
+    console.log('🚀 PRODUCTO: Abriendo modal de nuevo producto')
+    console.log('🚀 PRODUCTO: Categorías disponibles:', safeCategories.length)
+    
+    const initialForm = {
       name: '',
       category_id: safeCategories.length > 0 ? safeCategories[0].id.toString() : '',
       price: '',
@@ -1442,10 +1458,16 @@ function AdminDashboard({
       description: '',
       image: '',
       presentations: []
-    })
+    }
+    
+    console.log('🚀 PRODUCTO: Formulario inicial:', initialForm)
+    
+    setProductForm(initialForm)
     setShowPresentations(false)
     setCurrentPresentation({ name: '', price: '', unit: '' })
     setShowProductModal(true)
+    
+    console.log('✅ PRODUCTO: Modal abierto exitosamente')
   }
 
   const closeProductModal = () => {
@@ -1533,11 +1555,22 @@ function AdminDashboard({
   }
 
   const handleUnitChange = (unit) => {
+    console.log('🔍 UNIT CHANGE - VALUE:', unit)
+    console.log('🔍 UNIT CHANGE - TYPE:', typeof unit)
+    console.log('🔍 UNIT CHANGE - CHAR CODE:', unit ? unit.charCodeAt(0) : 'undefined')
+    console.log('📝 PRODUCTO: Cambiando unidad a:', unit)
+    console.log('📝 PRODUCTO: ¿Es presentación?', unit === 'PRESENTATION')
+    
     setProductForm(prev => ({ ...prev, unit }))
-    setShowPresentations(unit === 'presentation')
-    if (unit !== 'presentation') {
+    setShowPresentations(unit === 'PRESENTATION')
+    if (unit !== 'PRESENTATION') {
+      console.log('📝 PRODUCTO: Limpiando presentaciones (no es tipo presentación)')
       setProductForm(prev => ({ ...prev, presentations: [] }))
+    } else {
+      console.log('📝 PRODUCTO: Habilitando sección de presentaciones')
     }
+    
+    console.log('📝 PRODUCTO: Formulario actualizado con unidad:', unit)
   }
 
   // Edit modal handlers
@@ -1664,13 +1697,19 @@ function AdminDashboard({
   const handleProductSubmit = async (e) => {
     e.preventDefault()
     
+    // LOGS DE DEBUGGING PARA RASTREAR EL PROBLEMA
+    console.log('🔍 UNIT ORIGINAL:', productForm.unit)
+    console.log('🔍 UNIT TYPE:', typeof productForm.unit)
+    console.log('🔍 UNIT VALUE CODE:', productForm.unit ? productForm.unit.charCodeAt(0) : 'undefined')
+    console.log('🔍 FORM COMPLETO:', productForm)
+    
     if (!productForm.name.trim() || !productForm.category_id || !productForm.price || !productForm.unit) {
       showToast('Todos los campos obligatorios deben ser completados', 'error')
       return
     }
 
-    // Validate presentations if unit is 'presentation'
-    if (productForm.unit === 'presentation') {
+    // Validate presentations if unit is 'PRESENTATION'
+    if (productForm.unit === 'PRESENTATION') {
       if (productForm.presentations.length === 0) {
         showToast('Debes agregar al menos una presentación para productos envasados', 'error')
         return
@@ -1691,13 +1730,16 @@ function AdminDashboard({
         console.log('🔄 UPDATING PRODUCT:', editingProduct.id)
         const updateData = {
           name: productForm.name.trim(),
-          categoryId: parseInt(productForm.category_id),
+          category_id: parseInt(productForm.category_id),
           price: price,
-          unit: productForm.unit.toUpperCase(),
+          unit: productForm.unit.toLowerCase(), // FRONTEND SE ADAPTA AL BACKEND
           description: productForm.description.trim(),
           image: productForm.image.trim() || editingProduct.image,
           presentations: productForm.unit === 'presentation' ? productForm.presentations : undefined
         }
+        
+        console.log('🔍 UPDATE DATA TO SEND:', updateData)
+        console.log('🔍 UPDATE UNIT TO SEND:', updateData.unit)
         
         const response = await productService.updateProduct(editingProduct.id, updateData)
         
@@ -1713,28 +1755,34 @@ function AdminDashboard({
       } else {
         // Create new product
         console.log('➕ CREATING PRODUCT')
+        
+        // CONVERSIÓN FORZADA A MINÚSCULAS
         const productData = {
           name: productForm.name.trim(),
-          categoryId: parseInt(productForm.category_id),
+          category_id: parseInt(productForm.category_id),
           price: price,
-          unit: productForm.unit.toUpperCase(),
+          unit: productForm.unit.toLowerCase(), // FRONTEND SE ADAPTA AL BACKEND
           description: productForm.description.trim(),
           active: true
         }
+        
+        console.log('🔍 DATA TO SEND:', productData)
+        console.log('🔍 UNIT TO SEND:', productData.unit)
         
         // Only add image if it's not empty
         if (productForm.image.trim()) {
           productData.image = productForm.image.trim()
         }
         
-        // Add presentations if it's a presentation product
-        if (productForm.unit === 'presentation') {
-          productData.presentations = productForm.presentations
-        }
+        // NO agregar presentations al producto principal
+        // Las presentaciones se manejan por separado después de crear el producto
+        // if (productForm.unit === 'presentation') {
+        //   productData.presentations = productForm.presentations
+        // }
         
         console.log('📦 DATOS DEL PRODUCTO A CREAR:', {
           name: productData.name,
-          categoryId: productData.categoryId,
+          category_id: productData.category_id,
           price: productData.price,
           unit: productData.unit,
           description: productData.description,
@@ -1742,20 +1790,56 @@ function AdminDashboard({
           active: productData.active,
           presentations: productData.presentations
         })
-        console.log('Tipos de datos:')
-        console.log('- name:', typeof productData.name, productData.name)
-        console.log('- categoryId:', typeof productData.categoryId, productData.categoryId)
-        console.log('- price:', typeof productData.price, productData.price)
-        console.log('- unit:', typeof productData.unit, productData.unit)
-        console.log('- description:', typeof productData.description, productData.description)
-        console.log('- image:', typeof productData.image, productData.image)
-        console.log('- active:', typeof productData.active, productData.active)
+        console.log('✅ VALIDANDO DATOS ANTES DE ENVIAR:', {
+          category_id_existe: productData.category_id !== undefined,
+          category_id_valor: productData.category_id,
+          unit_valor: productData.unit,
+          price_es_numero: typeof productData.price === 'number',
+          name_existe: productData.name !== undefined
+        })
         
+        console.log('🚀 CREAR PRODUCTO - Iniciando...')
         const response = await productService.createProduct(productData)
-        console.log('📦 Create product response:', response)
+        console.log('📦 CREAR PRODUCTO - Respuesta:', response)
         
         if (response.success) {
-          setProducts([...safeProducts, response.data])
+          console.log('📦 RESPUESTA COMPLETA:', response)
+          console.log('📦 DATA:', response.data)
+          console.log('📦 ESTRUCTURA:', Object.keys(response.data))
+          
+          console.log('🔍 ESTRUCTURA RESPONSE:', {
+            responseKeys: Object.keys(response),
+            dataKeys: Object.keys(response.data || {}),
+            productId: response.data?.data?.id || response.data?.product?.id || response.data?.id || 'NO ID!'
+          })
+          
+          // Extraer el producto correctamente - ESTRUCTURA DOBLEMENTE ANIDADA
+          const newProduct = response.data?.data || response.data?.product || response.data
+          console.log('🔍 PRODUCTO EXTRAÍDO CORRECTAMENTE:', newProduct)
+          console.log('🔍 ID DEL PRODUCTO:', newProduct?.id)
+          console.log('✅ PRODUCTO CREADO - ID:', newProduct?.id)
+          console.log('📋 PRODUCTOS ANTES (safeProducts):', safeProducts.length)
+          
+          // VALIDACIÓN: Asegurar que el producto tenga ID válido
+          if (!newProduct || !newProduct.id) {
+            console.error('❌ ERROR: Producto sin ID válido:', newProduct)
+            showToast('Error: El producto se creó pero no se recibió ID válido', 'error')
+            return
+          }
+          
+          // ACTUALIZAR EL ESTADO GLOBAL DEL PADRE (App.jsx)
+          console.log('🔄 ACTUALIZANDO ESTADO GLOBAL DEL PADRE...')
+          setProducts(currentProducts => {
+            const updatedProducts = [...currentProducts, newProduct]
+            console.log('📋 PRODUCTOS ANTES DEL CALLBACK:', currentProducts.length)
+            console.log('📋 PRODUCTOS DESPUÉS DEL CALLBACK:', updatedProducts.length)
+            console.log('🔄 ¿Se actualizó la lista?', updatedProducts.includes(newProduct))
+            console.log('🔄 NUEVO PRODUCTO TIENE ID?', newProduct?.id)
+            console.log('🔄 ÚLTIMO PRODUCTO EN LISTA:', updatedProducts[updatedProducts.length - 1])
+            console.log('🔄 IDS DE TODOS LOS PRODUCTOS:', updatedProducts.map(p => p.id))
+            return updatedProducts
+          })
+          
           // Go to last page to see the new product
           const newTotalPages = Math.ceil((safeProducts.length + 1) / productsPerPage)
           setCurrentPage(newTotalPages)
@@ -1772,6 +1856,7 @@ function AdminDashboard({
         }
       }
       
+      console.log('🔄 CERRANDO MODAL DE PRODUCTO')
       closeProductModal()
     } catch (error) {
       console.error('❌ Exception in handleProductSubmit:', error)
@@ -2533,7 +2618,7 @@ function AdminDashboard({
                     <option value="l">Litro (l)</option>
                     <option value="g">Gramo (g)</option>
                     <option value="paq">Paquete (paq)</option>
-                    <option value="presentation">Presentaciones (productos envasados)</option>
+                    <option value="PRESENTATION">Presentaciones (productos envasados)</option>
                   </select>
                 </FormGroup>
               </div>
@@ -2638,36 +2723,16 @@ function AdminDashboard({
               <FormGroup>
                 <label>Imagen del producto</label>
                 <ImageUploadContainer>
-                  <ImageOptionTabs>
-                    <ImageOptionTab
-                      type="button"
-                      $active={imageInputType === 'url'}
-                      onClick={() => handleImageInputTypeChange('url')}
-                    >
-                      <Link size={14} />
-                      URL de imagen
-                    </ImageOptionTab>
-                    <ImageOptionTab
-                      type="button"
-                      $active={imageInputType === 'file'}
-                      onClick={() => handleImageInputTypeChange('file')}
-                    >
-                      <Camera size={14} />
-                      Subir archivo
-                    </ImageOptionTab>
-                  </ImageOptionTabs>
-
-                  {imageInputType === 'url' ? (
-                    <input 
-                      type="url" 
-                      value={productForm.image}
-                      onChange={(e) => setProductForm({...productForm, image: e.target.value})}
-                      placeholder="https://images.unsplash.com/photo-..."
-                      style={{ width: '100%', padding: '12px', borderRadius: '6px', border: '1px solid #e2e8f0' }}
-                    />
-                  ) : (
-                    <>
-                      {!uploadedFile ? (
+                  {/* ELIMINADO: Tabs de URL vs Archivo - Solo archivo */}
+                  <div style={{ marginBottom: '10px' }}>
+                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>
+                      <Camera size={16} style={{ marginRight: '5px' }} />
+                      Imagen del producto
+                    </label>
+                  </div>
+                  
+                  {/* Solo upload de archivos */}
+                  {!uploadedFile ? (
                         <FileUploadArea
                           onClick={() => document.getElementById('fileInput').click()}
                           onDrop={(e) => {
@@ -2709,8 +2774,6 @@ function AdminDashboard({
                           </RemoveImageButton>
                         </ImagePreview>
                       )}
-                    </>
-                  )}
                 </ImageUploadContainer>
               </FormGroup>
               

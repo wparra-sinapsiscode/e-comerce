@@ -283,8 +283,12 @@ class ProductService {
    * @returns {Promise<Object>} API response
    */
   async deleteProduct(id) {
+    console.log('🗑️ SERVICE DELETE - ID:', id)
+    console.log('🗑️ SERVICE DELETE - URL:', API_ENDPOINTS.PRODUCTS.BY_ID(id))
+    
     try {
       const response = await apiClient.delete(API_ENDPOINTS.PRODUCTS.BY_ID(id))
+      console.log('🗑️ SERVICE DELETE RESPONSE:', response)
       
       if (response.success) {
         // Clear cache
@@ -294,12 +298,22 @@ class ProductService {
       
       return response
     } catch (error) {
-      console.error('Error deleting product:', error)
+      console.error('❌ SERVICE DELETE ERROR:', error)
       return {
         success: false,
         error: { type: 'network', message: 'Error al eliminar producto' }
       }
     }
+  }
+
+  /**
+   * Alias for deleteProduct (for compatibility)
+   * @param {number} id - Product ID
+   * @returns {Promise<Object>} API response
+   */
+  async delete(id) {
+    console.log('🗑️ SERVICE DELETE ALIAS - Calling deleteProduct with ID:', id)
+    return this.deleteProduct(id)
   }
 
   /**
