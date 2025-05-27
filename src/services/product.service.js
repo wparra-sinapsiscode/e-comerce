@@ -437,6 +437,15 @@ class ProductService {
   }
 
   /**
+   * Alias for getProducts (for compatibility)
+   * @param {Object} params - Query parameters
+   * @returns {Promise<Object>} API response with products array
+   */
+  async getAll(params = {}) {
+    return this.getProducts(params)
+  }
+
+  /**
    * Clear product-related cache
    * @private
    */

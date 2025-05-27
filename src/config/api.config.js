@@ -34,7 +34,7 @@ export const API_ENDPOINTS = {
   TIMEOUT: currentConfig.TIMEOUT,
 
   // Full API base URL
-  API_BASE: `<span class="math-inline">\{currentConfig\.BASE\_URL\}/api/</span>{currentConfig.API_VERSION}`,
+  API_BASE: `${currentConfig.BASE_URL}/api/${currentConfig.API_VERSION}`,
 
   // Authentication endpoints
   AUTH: {

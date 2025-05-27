@@ -393,6 +393,15 @@ class CategoryService {
   }
 
   /**
+   * Alias for getCategories (for compatibility)
+   * @param {Object} params - Query parameters
+   * @returns {Promise<Object>} API response with categories array
+   */
+  async getAll(params = {}) {
+    return this.getCategories(params)
+  }
+
+  /**
    * Clear category-related cache
    * @private
    */

@@ -391,5 +391,6 @@ export const cacheHelpers = {
   },
 }
 
+// Single export block to avoid duplicates
 export { httpClient }
 export default apiClient

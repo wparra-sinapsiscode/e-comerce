@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import styled from 'styled-components'
 import { Store, Mail, Lock, User, Phone } from 'lucide-react'
 
@@ -173,6 +174,7 @@ const DemoBtn = styled.button`
 `
 
 function AuthPage({ login, register }) {
+  const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState('login')
   const [loginData, setLoginData] = useState({ email: '', password: '' })
   const [registerData, setRegisterData] = useState({
@@ -186,7 +188,11 @@ function AuthPage({ login, register }) {
   const handleLoginSubmit = async (e) => {
     e.preventDefault()
     if (loginData.email && loginData.password) {
-      await login(loginData.email, loginData.password)
+      const user = await login(loginData.email, loginData.password)
+      if (user) {
+        // Navegar al dashboard correspondiente después del login exitoso
+        navigate(user.role === 'ADMIN' ? '/admin' : '/store')
+      }
     }
   }
 
@@ -197,13 +203,21 @@ function AuthPage({ login, register }) {
         // Handle password mismatch
         return
       }
-      await register(registerData)
+      const user = await register(registerData)
+      if (user) {
+        // Navegar al dashboard correspondiente después del registro exitoso
+        navigate(user.role === 'ADMIN' ? '/admin' : '/store')
+      }
     }
   }
 
-  const handleDemoLogin = (email, password) => {
+  const handleDemoLogin = async (email, password) => {
     setLoginData({ email, password })
-    login(email, password)
+    const user = await login(email, password)
+    if (user) {
+      // Navegar al dashboard correspondiente después del login demo exitoso
+      navigate(user.role === 'ADMIN' ? '/admin' : '/store')
+    }
   }
 
   return (
@@ -267,18 +281,18 @@ function AuthPage({ login, register }) {
             <AuthBtn type="submit">Iniciar sesión</AuthBtn>
             
             <DemoAccounts>
-              <p>Cuentas demo:</p>
+              <p>Cuentas demo (asegúrate de que el backend esté ejecutándose):</p>
               <DemoBtn 
                 type="button" 
                 className="admin"
-                onClick={() => handleDemoLogin('admin@demo.com', '123456')}
+                onClick={() => handleDemoLogin('admin@ecommerce.com', 'admin123')}
               >
                 Administrador
               </DemoBtn>
               <DemoBtn 
                 type="button" 
                 className="client"
-                onClick={() => handleDemoLogin('cliente@demo.com', '123456')}
+                onClick={() => handleDemoLogin('customer@test.com', 'customer123')}
               >
                 Cliente
               </DemoBtn>

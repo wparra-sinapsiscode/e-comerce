@@ -32,26 +32,34 @@ function App() {
       try {
         setIsLoading(true)
         
-        // Initialize service manager
+        // Initialize service manager (auth verification)
         await serviceManager.initialize()
         
-        // Load initial data
-        const [categoriesData, productsData, ordersData, paymentsData] = await Promise.all([
-          categoryService.getAll(),
-          productService.getAll(),
-          orderService.getAll(),
-          paymentService.getAll()
-        ])
+        // Verificar si hay un usuario autenticado
+        const currentUser = authService.getCurrentUser()
+        if (currentUser) {
+          setCurrentUser(currentUser)
+        }
         
-        setAppCategories(categoriesData)
-        setAppProducts(productsData)
-        setOrders(ordersData)
-        setPayments(paymentsData)
+        // TODO: Cargar datos cuando tengamos los endpoints en el backend
+        // const [categoriesData, productsData, ordersData, paymentsData] = await Promise.all([
+        //   categoryService.getAll(),
+        //   productService.getAll(),
+        //   orderService.getAll(),
+        //   paymentService.getAll()
+        // ])
+        
+        // Usar datos mock temporalmente
+        setAppCategories([])
+        setAppProducts([])
+        setOrders([])
+        setPayments([])
         setServicesInitialized(true)
         
       } catch (error) {
         console.error('Failed to initialize app:', error)
         showToast('Error al cargar la aplicación', 'error')
+        setServicesInitialized(true) // Continuar aunque falle
       } finally {
         setIsLoading(false)
       }
@@ -67,11 +75,11 @@ function App() {
       const response = await authService.login({ email, password })
       
       if (response.success) {
-        setCurrentUser(response.user)
+        setCurrentUser(response.data.user)
         showToast('¡Bienvenido!', 'success')
-        return response.user
+        return response.data.user
       } else {
-        showToast(response.message || 'Credenciales incorrectas', 'error')
+        showToast(response.error?.message || 'Credenciales incorrectas', 'error')
         return null
       }
     } catch (error) {
@@ -90,11 +98,11 @@ function App() {
       const response = await authService.register(userData)
       
       if (response.success) {
-        setCurrentUser(response.user)
+        setCurrentUser(response.data.user)
         showToast('Registro exitoso. ¡Bienvenido!', 'success')
-        return response.user
+        return response.data.user
       } else {
-        showToast(response.message || 'Error en el registro', 'error')
+        showToast(response.error?.message || 'Error en el registro', 'error')
         return null
       }
     } catch (error) {
@@ -162,14 +170,14 @@ function App() {
             path="/auth" 
             element={
               currentUser ? 
-                <Navigate to={currentUser.type === 'admin' ? '/admin' : '/store'} replace /> :
+                <Navigate to={currentUser.role === 'ADMIN' ? '/admin' : '/store'} replace /> :
                 <AuthPage login={login} register={register} />
             } 
           />
           <Route 
             path="/admin/*" 
             element={
-              currentUser && currentUser.type === 'admin' ? 
+              currentUser && currentUser.role === 'ADMIN' ? 
                 <AdminDashboard user={currentUser} logout={logout} {...appData} /> :
                 <Navigate to="/auth" replace />
             } 
@@ -177,7 +185,7 @@ function App() {
           <Route 
             path="/store/*" 
             element={
-              currentUser && currentUser.type === 'client' ? 
+              currentUser && currentUser.role === 'CUSTOMER' ? 
                 <ClientStore user={currentUser} logout={logout} {...appData} /> :
                 <Navigate to="/auth" replace />
             } 
@@ -187,7 +195,7 @@ function App() {
             element={
               <Navigate to={
                 currentUser ? 
-                  (currentUser.type === 'admin' ? '/admin' : '/store') : 
+                  (currentUser.role === 'ADMIN' ? '/admin' : '/store') : 
                   '/auth'
               } replace />
             } 
