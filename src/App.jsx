@@ -35,10 +35,15 @@ function App() {
         // Initialize service manager (auth verification)
         await serviceManager.initialize()
         
-        // Verificar si hay un usuario autenticado
-        const currentUser = authService.getCurrentUser()
-        if (currentUser) {
-          setCurrentUser(currentUser)
+        // Verificar si hay un usuario autenticado y token válido
+        if (authService.isAuthenticated()) {
+          const currentUser = authService.getCurrentUser()
+          if (currentUser) {
+            setCurrentUser(currentUser)
+          }
+        } else {
+          // Token inválido o expirado, limpiar sesión
+          await authService.logout()
         }
         
         // TODO: Cargar datos cuando tengamos los endpoints en el backend
