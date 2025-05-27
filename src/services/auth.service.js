@@ -65,9 +65,12 @@ class AuthService {
    * @returns {Promise<Object>} API response with user data and token
    */
   async login(credentials) {
+    console.log('🔐 AuthService.login called with:', credentials)
+    
     // Validate login data
     const validation = validateLogin(credentials)
     if (!validation.success) {
+      console.log('❌ Validation failed:', validation.error)
       return {
         success: false,
         error: { type: 'validation', errors: validation.error }
@@ -75,28 +78,35 @@ class AuthService {
     }
 
     try {
+      console.log('📡 Making API call to:', API_ENDPOINTS.AUTH.LOGIN)
       const response = await apiClient.post(API_ENDPOINTS.AUTH.LOGIN, validation.data)
+      console.log('📥 Raw API response:', response)
       
       if (response.success) {
+        console.log('✅ Login successful, response.data:', response.data)
         const { access_token, refresh_token, user } = response.data
+        console.log('🔑 Extracted data:', { access_token: !!access_token, refresh_token: !!refresh_token, user })
         
         // Store tokens and user data
         authHelpers.setToken(access_token, refresh_token)
         this.currentUser = user
         localStorage.setItem(USER_DATA_KEY, JSON.stringify(user))
         
-        return {
+        const finalResult = {
           success: true,
           data: {
             user,
             token: access_token
           }
         }
+        console.log('🎯 AuthService returning:', finalResult)
+        return finalResult
       }
       
+      console.log('❌ Login not successful, returning original response:', response)
       return response
     } catch (error) {
-      console.error('Error during login:', error)
+      console.error('💥 Error during login:', error)
       return {
         success: false,
         error: { type: 'network', message: 'Error al iniciar sesión' }

@@ -187,12 +187,21 @@ function AuthPage({ login, register }) {
 
   const handleLoginSubmit = async (e) => {
     e.preventDefault()
+    console.log('🚀 handleLoginSubmit started with:', { email: loginData.email })
+    
     if (loginData.email && loginData.password) {
       const user = await login(loginData.email, loginData.password)
+      console.log('📋 Login response user:', user)
+      
       if (user) {
-        // Navegar al dashboard correspondiente después del login exitoso
-        navigate(user.role === 'ADMIN' ? '/admin' : '/store')
+        const targetRoute = user.role === 'ADMIN' ? '/admin' : '/store'
+        console.log('🎯 Navigating to:', targetRoute, 'for role:', user.role)
+        navigate(targetRoute)
+      } else {
+        console.log('❌ Login failed - no user returned')
       }
+    } else {
+      console.log('⚠️ Missing email or password')
     }
   }
 
@@ -212,11 +221,17 @@ function AuthPage({ login, register }) {
   }
 
   const handleDemoLogin = async (email, password) => {
+    console.log('🎪 Demo login started with:', { email })
     setLoginData({ email, password })
     const user = await login(email, password)
+    console.log('📋 Demo login response user:', user)
+    
     if (user) {
-      // Navegar al dashboard correspondiente después del login demo exitoso
-      navigate(user.role === 'ADMIN' ? '/admin' : '/store')
+      const targetRoute = user.role === 'ADMIN' ? '/admin' : '/store'
+      console.log('🎯 Demo navigating to:', targetRoute, 'for role:', user.role)
+      navigate(targetRoute)
+    } else {
+      console.log('❌ Demo login failed - no user returned')
     }
   }
 
