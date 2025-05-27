@@ -78,20 +78,15 @@ function App() {
       setIsLoading(true)
       
       const response = await authService.login({ email, password })
-      console.log('🔍 Full authService response:', response)
       
       if (response.success) {
-        console.log('✅ Response is success, user data:', response.data)
-        
         // Si no viene el usuario en la respuesta, obtenerlo del localStorage
         const user = response.data.user || authService.getCurrentUser()
-        console.log('👤 Final user object:', user)
         
         setCurrentUser(user)
         showToast('¡Bienvenido!', 'success')
         return user
       } else {
-        console.log('❌ Response not successful:', response.error)
         showToast(response.error?.message || 'Credenciales incorrectas', 'error')
         return null
       }
