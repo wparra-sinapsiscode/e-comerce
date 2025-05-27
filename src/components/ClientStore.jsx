@@ -1617,8 +1617,10 @@ function ClientStore({
         voucher_file: voucherFile
       }
       
+      console.log('🛒 ClientStore: Datos de la orden listos para enviar:', orderData);
+      
       // Submit order through API
-      const response = await orderService.create(orderData)
+      const response = await orderService.createOrder(orderData)
       
       if (response.success) {
         // Clear cart and set confirmed order

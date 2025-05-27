@@ -32,6 +32,8 @@ class OrderService {
    * @returns {Promise<Object>} API response with orders array
    */
   async getOrders(params = {}) {
+    console.log('📦 order.service: Solicitando TODOS los pedidos a la API (Admin)...');
+    
     if (FEATURE_FLAGS.USE_MOCK_DATA) {
       return this._getMockOrders(params)
     }
@@ -48,6 +50,8 @@ class OrderService {
       if (response.success) {
         cacheHelpers.set(cacheKey, response.data, this.cacheTTL)
       }
+      
+      console.log('📦 order.service: Respuesta de TODOS los pedidos recibida:', response);
       
       return response
     } catch (error) {
@@ -98,12 +102,48 @@ class OrderService {
   }
 
   /**
-   * Get orders by customer phone
+   * Get my orders (authenticated user)
+   * @param {Object} params - Additional query parameters
+   * @returns {Promise<Object>} API response with user orders
+   */
+  async getMyOrders(params = {}) {
+    console.log('📦 order.service: Solicitando mis pedidos a la API...');
+    
+    if (FEATURE_FLAGS.USE_MOCK_DATA) {
+      // For mock data, return all orders (in real app, this would be filtered by user)
+      return {
+        success: true,
+        data: {
+          orders: mockOrders,
+          total: mockOrders.length
+        }
+      }
+    }
+
+    try {
+      const response = await apiClient.get(`${API_ENDPOINTS.ORDERS.BASE}/my-orders`, params)
+      
+      console.log('📦 order.service: Respuesta de mis pedidos recibida:', response);
+      
+      return response
+    } catch (error) {
+      console.error('Error fetching my orders:', error)
+      return {
+        success: false,
+        error: { type: 'network', message: 'Error al cargar mis pedidos' }
+      }
+    }
+  }
+
+  /**
+   * Get orders by customer phone (admin use)
    * @param {string} customerPhone - Customer phone number
    * @param {Object} params - Additional query parameters
    * @returns {Promise<Object>} API response with customer orders
    */
   async getOrdersByCustomer(customerPhone, params = {}) {
+    console.log('📦 order.service: Solicitando pedidos a la API...');
+    
     if (FEATURE_FLAGS.USE_MOCK_DATA) {
       const customerOrders = mockOrders.filter(o => o.customer_phone === customerPhone)
       return {
@@ -120,6 +160,9 @@ class OrderService {
         API_ENDPOINTS.ORDERS.BY_CUSTOMER(customerPhone), 
         params
       )
+      
+      console.log('📦 order.service: Respuesta de la API recibida:', response);
+      
       return response
     } catch (error) {
       console.error('Error fetching customer orders:', error)
@@ -175,6 +218,8 @@ class OrderService {
       }
     }
 
+    console.log('📦 order.service: Enviando datos a la API /orders con el siguiente payload:', validation.data);
+    
     try {
       const response = await apiClient.post(API_ENDPOINTS.ORDERS.BASE, validation.data)
       

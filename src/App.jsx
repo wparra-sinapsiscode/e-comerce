@@ -27,9 +27,11 @@ function App() {
   }
 
   // Función para cargar datos de la aplicación (solo cuando está autenticado)
-  const loadAppData = async () => {
+  const loadAppData = async (user = null) => {
     try {
       console.log('📦 APP: Iniciando carga de datos...')
+      const authenticatedUser = user || currentUser
+      console.log('📦 APP: Usuario para cargar datos:', authenticatedUser)
       
       console.log('📦 APP: Cargando categorías...')
       const categoriesResponse = await categoryService.getAll()
@@ -51,7 +53,31 @@ function App() {
       // Configurar los datos en el estado
       setAppCategories(categoriesArray)
       setAppProducts(productsArray)
-      setOrders([]) // TODO: Implementar cuando esté listo
+      
+      console.log('🛒 APP: Disparando la carga de pedidos...');
+      console.log('📦 APP: Usuario actual completo:', authenticatedUser)
+      
+      // Cargar pedidos según el rol del usuario
+      let ordersResponse
+      if (authenticatedUser?.role === 'ADMIN') {
+        console.log('📦 APP: Usuario ADMIN - Cargando TODOS los pedidos')
+        ordersResponse = await orderService.getOrders()
+      } else {
+        console.log('📦 APP: Usuario CLIENTE - Cargando mis pedidos para usuario ID:', authenticatedUser?.id)
+        ordersResponse = await orderService.getMyOrders()
+      }
+      
+      console.log('📦 APP: Respuesta pedidos:', ordersResponse)
+      
+      if (ordersResponse.success) {
+        const ordersArray = ordersResponse.data?.data || []
+        setOrders(ordersArray)
+        console.log('📦 APP: Pedidos configurados:', ordersArray.length, 'pedidos para rol:', currentUser?.role)
+      } else {
+        console.log('📦 APP: Error cargando pedidos:', ordersResponse.error)
+        setOrders([])
+      }
+      
       setPayments([]) // TODO: Implementar cuando esté listo
       
       console.log('📦 APP: Datos configurados exitosamente')
@@ -80,7 +106,7 @@ function App() {
           console.log('🔐 Session restored for user:', authenticatedUser.email)
           setCurrentUser(authenticatedUser)
           // Load app data for authenticated user
-          await loadAppData()
+          await loadAppData(authenticatedUser)
         } else {
           console.log('🔐 No valid session found')
           // COMENTADO: Evitar logout automático durante inicialización
@@ -113,7 +139,7 @@ function App() {
         
         setCurrentUser(user)
         // Cargar datos de la aplicación después del login exitoso
-        await loadAppData()
+        await loadAppData(user)
         showToast('¡Bienvenido!', 'success')
         return user
       } else {
