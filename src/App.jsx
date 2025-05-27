@@ -70,20 +70,21 @@ function App() {
       try {
         setIsLoading(true)
         
-        // Initialize service manager (auth verification)
+        // Initialize service manager (this will initialize auth and restore session if valid)
         await serviceManager.initialize()
         
-        // Verificar si hay un usuario autenticado y token válido
-        if (authService.isAuthenticated()) {
-          const currentUser = authService.getCurrentUser()
-          if (currentUser) {
-            setCurrentUser(currentUser)
-            // Solo cargar datos si el usuario está autenticado
-            await loadAppData()
-          }
+        // Get user after initialization (auth service handles token validation internally)
+        const authenticatedUser = authService.getCurrentUser()
+        
+        if (authenticatedUser && authService.isAuthenticated()) {
+          console.log('🔐 Session restored for user:', authenticatedUser.email)
+          setCurrentUser(authenticatedUser)
+          // Load app data for authenticated user
+          await loadAppData()
         } else {
-          // Token inválido o expirado, limpiar sesión
-          await authService.logout()
+          console.log('🔐 No valid session found')
+          // COMENTADO: Evitar logout automático durante inicialización
+          // await authService.logout()
         }
         
         setServicesInitialized(true)

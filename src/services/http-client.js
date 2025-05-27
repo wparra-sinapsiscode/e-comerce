@@ -26,18 +26,22 @@ httpClient.interceptors.request.use(
   (config) => {
     // Add auth token if available
     const token = localStorage.getItem(AUTH_TOKEN_KEY)
+    console.log('🔐 Token from localStorage:', token ? `Found (${token.substring(0, 20)}...)` : 'Not found')
+    console.log('🔐 AUTH_TOKEN_KEY:', AUTH_TOKEN_KEY)
+    
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
+      console.log('🔐 Authorization header set')
+    } else {
+      console.log('🔐 No token found, request will be unauthenticated')
     }
     
-    // Log API calls in debug mode
-    if (FEATURE_FLAGS.DEBUG_API_CALLS) {
-      console.log(`🌐 API Request: ${config.method?.toUpperCase()} ${config.url}`, {
-        data: config.data,
-        params: config.params,
-        headers: config.headers,
-      })
-    }
+    // Log API calls (always in development)
+    console.log(`🌐 API Request: ${config.method?.toUpperCase()} ${config.url}`, {
+      data: config.data,
+      params: config.params,
+      headers: config.headers,
+    })
     
     return config
   },
@@ -94,7 +98,9 @@ httpClient.interceptors.response.use(
         // Refresh failed, redirect to login
         localStorage.removeItem(AUTH_TOKEN_KEY)
         localStorage.removeItem(REFRESH_TOKEN_KEY)
-        window.location.href = '/login'
+        // COMENTADO: Evitar redirección automática durante inicialización
+        // window.location.href = '/login'
+        console.log('🔐 Refresh token failed, but not redirecting during initialization')
         return Promise.reject(refreshError)
       }
     }

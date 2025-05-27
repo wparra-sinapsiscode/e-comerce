@@ -151,9 +151,14 @@ class CategoryService {
    * @returns {Promise<Object>} API response with created category
    */
   async createCategory(categoryData) {
+    console.log('🏷️ CATEGORY SERVICE: createCategory llamado con:', categoryData)
+    
     // Validate category data
     const validation = validateCreateCategory(categoryData)
+    console.log('🏷️ CATEGORY SERVICE: Validación:', validation)
+    
     if (!validation.success) {
+      console.log('❌ CATEGORY SERVICE: Validación falló:', validation.error)
       return {
         success: false,
         error: { type: 'validation', errors: validation.error }
@@ -161,11 +166,19 @@ class CategoryService {
     }
 
     try {
+      console.log('🏷️ CATEGORY SERVICE: Datos validados:', validation.data)
+      console.log('🏷️ CATEGORY SERVICE: Enviando POST a:', API_ENDPOINTS.CATEGORIES.BASE)
+      
       const response = await apiClient.post(API_ENDPOINTS.CATEGORIES.BASE, validation.data)
       
+      console.log('🏷️ CATEGORY SERVICE: Respuesta recibida:', response)
+      
       if (response.success) {
+        console.log('✅ CATEGORY SERVICE: Categoría creada exitosamente')
         // Clear cache to refresh category lists
         this._clearCategoryCache()
+      } else {
+        console.log('❌ CATEGORY SERVICE: Error en respuesta:', response.error)
       }
       
       return response

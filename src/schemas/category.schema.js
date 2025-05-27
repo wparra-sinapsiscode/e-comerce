@@ -1,9 +1,10 @@
 import { z } from 'zod'
 
-// Available icons enum (based on your existing categories)
+// Available icons enum (synchronized with AdminDashboard.jsx)
 export const CategoryIconSchema = z.enum([
-  'Apple', 'Carrot', 'Milk', 'Drumstick', 'Fish', 
-  'Bread', 'Wine', 'ShoppingBasket', 'Coffee', 'Egg'
+  'Apple', 'Carrot', 'Beef', 'Fish', 'Milk', 'Egg', 
+  'Wheat', 'Coffee', 'Wine', 'Droplets', 'ShoppingBasket', 
+  'Zap', 'Flower2', 'Soup', 'Utensils', 'Package'
 ])
 
 // Category schema
@@ -67,18 +68,24 @@ export const CATEGORY_COLORS = [
   '#95a5a6', // Gray
 ]
 
-// Icon mappings with descriptions
+// Icon mappings with descriptions (synchronized with AdminDashboard.jsx)
 export const ICON_DESCRIPTIONS = {
-  Apple: 'Frutas',
-  Carrot: 'Verduras', 
-  Milk: 'Lácteos',
-  Drumstick: 'Carnes',
-  Fish: 'Pescados',
-  Bread: 'Panadería',
-  Wine: 'Bebidas',
-  ShoppingBasket: 'Abarrotes',
-  Coffee: 'Cafetería',
-  Egg: 'Huevos y derivados',
+  Apple: 'Frutas Frescas',
+  Carrot: 'Verduras y Hortalizas',
+  Beef: 'Carnes y Aves',
+  Fish: 'Pescados y Mariscos',
+  Milk: 'Productos Lácteos',
+  Egg: 'Huevos y Derivados',
+  Wheat: 'Cereales y Granos',
+  Coffee: 'Café e Infusiones',
+  Wine: 'Bebidas Alcohólicas',
+  Droplets: 'Bebidas y Jugos',
+  ShoppingBasket: 'Abarrotes y Conservas',
+  Zap: 'Bebidas Energéticas',
+  Flower2: 'Hierbas y Condimentos',
+  Soup: 'Comidas Preparadas',
+  Utensils: 'Platos Elaborados',
+  Package: 'Productos Generales',
 }
 
 // Type exports

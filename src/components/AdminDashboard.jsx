@@ -1112,6 +1112,12 @@ function AdminDashboard({
   paymentService,
   servicesInitialized
 }) {
+  // Ensure arrays are never undefined
+  const safeCategories = categories || []
+  const safeProducts = products || []
+  const safeOrders = orders || []
+  const safePayments = payments || []
+
   // Debug logs para categorías y productos
   useEffect(() => {
     console.log('🎯 ADMIN DASHBOARD - Props recibidas:', {
@@ -1192,7 +1198,7 @@ function AdminDashboard({
 
   const getNextActions = (order) => {
     const currentStatus = order.status
-    const payment = payments.find(p => p.order_id === order.id)
+    const payment = safePayments.find(p => p.order_id === order.id)
     
     switch (currentStatus) {
       case 'awaiting_payment':
@@ -1211,7 +1217,7 @@ function AdminDashboard({
   }
 
   const progressOrder = (orderId, newStatus) => {
-    setOrders(orders.map(order => 
+    setOrders(safeOrders.map(order => 
       order.id === orderId ? { ...order, status: newStatus } : order
     ))
     
@@ -1267,7 +1273,7 @@ function AdminDashboard({
 
   const canAdvanceToStep = (order, targetStepIndex) => {
     const currentIndex = getStatusIndex(order.status)
-    const payment = payments.find(p => p.order_id === order.id)
+    const payment = safePayments.find(p => p.order_id === order.id)
     
     // Can only advance one step at a time
     if (targetStepIndex !== currentIndex + 1) return false
@@ -1283,7 +1289,7 @@ function AdminDashboard({
   const renderWorkflowVisualizer = (order) => {
     const steps = getWorkflowSteps()
     const currentIndex = getStatusIndex(order.status)
-    const payment = payments.find(p => p.order_id === order.id)
+    const payment = safePayments.find(p => p.order_id === order.id)
     
     return (
       <WorkflowContainer>
@@ -1372,7 +1378,7 @@ function AdminDashboard({
         const response = await categoryService.delete(categoryId)
         
         if (response.success) {
-          setCategories(categories.filter(cat => cat.id !== categoryId))
+          setCategories(safeCategories.filter(cat => cat.id !== categoryId))
           showToast('Categoría eliminada correctamente', 'success')
         } else {
           showToast(response.message || 'Error al eliminar la categoría', 'error')
@@ -1393,7 +1399,7 @@ function AdminDashboard({
         const response = await productService.delete(productId)
         
         if (response.success) {
-          setProducts(products.filter(prod => prod.id !== productId))
+          setProducts(safeProducts.filter(prod => prod.id !== productId))
           showToast('Producto eliminado correctamente', 'success')
         } else {
           showToast(response.message || 'Error al eliminar el producto', 'error')
@@ -1430,7 +1436,7 @@ function AdminDashboard({
   const openProductModal = () => {
     setProductForm({
       name: '',
-      category_id: categories.length > 0 ? categories[0].id.toString() : '',
+      category_id: safeCategories.length > 0 ? safeCategories[0].id.toString() : '',
       price: '',
       unit: '',
       description: '',
@@ -1568,7 +1574,11 @@ function AdminDashboard({
   const handleCategorySubmit = async (e) => {
     e.preventDefault()
     
+    console.log('🏷️ CATEGORY SUBMIT: Formulario enviado')
+    console.log('🏷️ CATEGORY SUBMIT: categoryForm completo:', categoryForm)
+    
     if (!categoryForm.name.trim()) {
+      console.log('❌ CATEGORY SUBMIT: Nombre vacío')
       showToast('El nombre de la categoría es obligatorio', 'error')
       return
     }
@@ -1581,13 +1591,24 @@ function AdminDashboard({
         icon: categoryForm.icon,
         color: categoryForm.color
       }
+      
+      console.log('🏷️ CATEGORY SUBMIT: Datos a enviar:', categoryData)
+      console.log('🏷️ CATEGORY SUBMIT: Tipo de icono:', typeof categoryData.icon)
+      console.log('🏷️ CATEGORY SUBMIT: Icono seleccionado:', categoryData.icon)
+      
+      // Verificar que el icono esté en la lista de disponibles
+      const iconExists = availableIcons.find(icon => icon.name === categoryData.icon)
+      console.log('🏷️ CATEGORY SUBMIT: ¿Icono existe en lista?', !!iconExists)
+      if (iconExists) {
+        console.log('🏷️ CATEGORY SUBMIT: Icono encontrado:', iconExists)
+      }
 
       if (editingCategory) {
         // Update existing category
         const response = await categoryService.update(editingCategory.id, categoryData)
         
         if (response.success) {
-          const updatedCategories = categories.map(cat => 
+          const updatedCategories = safeCategories.map(cat => 
             cat.id === editingCategory.id ? response.data.category : cat
           )
           setCategories(updatedCategories)
@@ -1598,13 +1619,21 @@ function AdminDashboard({
         }
       } else {
         // Create new category
+        console.log('🏷️ CATEGORY SUBMIT: Llamando a categoryService.create...')
         const response = await categoryService.create(categoryData)
         
+        console.log('🏷️ CATEGORY SUBMIT: Respuesta del backend:', response)
+        console.log('🏷️ CATEGORY SUBMIT: Success:', response.success)
+        
         if (response.success) {
-          setCategories([...categories, response.data.category])
+          console.log('✅ CATEGORY SUBMIT: Categoría creada exitosamente')
+          console.log('🏷️ CATEGORY SUBMIT: Nueva categoría:', response.data.category)
+          setCategories([...safeCategories, response.data.category])
           showToast('Categoría creada correctamente', 'success')
           closeCategoryModal()
         } else {
+          console.log('❌ CATEGORY SUBMIT: Error del backend:', response.error)
+          console.log('❌ CATEGORY SUBMIT: Mensaje de error:', response.message)
           showToast(response.message || 'Error al crear la categoría', 'error')
         }
       }
@@ -1616,7 +1645,7 @@ function AdminDashboard({
     }
   }
 
-  const handleProductSubmit = (e) => {
+  const handleProductSubmit = async (e) => {
     e.preventDefault()
     
     if (!productForm.name.trim() || !productForm.category_id || !productForm.price || !productForm.unit) {
@@ -1638,48 +1667,75 @@ function AdminDashboard({
       return
     }
 
-    if (editingProduct) {
-      // Update existing product
-      const updatedProducts = products.map(prod => 
-        prod.id === editingProduct.id 
-          ? {
-              ...prod,
-              name: productForm.name.trim(),
-              category_id: parseInt(productForm.category_id),
-              price: price,
-              unit: productForm.unit,
-              description: productForm.description.trim(),
-              image: productForm.image.trim() || prod.image,
-              presentations: productForm.unit === 'presentation' ? productForm.presentations : undefined
-            }
-          : prod
-      )
-      setProducts(updatedProducts)
-      showToast('Producto actualizado correctamente', 'success')
-    } else {
-      // Create new product
-      const newProduct = {
-        id: Math.max(...products.map(p => p.id), 0) + 1,
-        name: productForm.name.trim(),
-        category_id: parseInt(productForm.category_id),
-        price: price,
-        unit: productForm.unit,
-        description: productForm.description.trim(),
-        image: productForm.image.trim() || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c'
+    setIsLoading(true)
+
+    try {
+      if (editingProduct) {
+        // Update existing product
+        console.log('🔄 UPDATING PRODUCT:', editingProduct.id)
+        const updateData = {
+          name: productForm.name.trim(),
+          categoryId: parseInt(productForm.category_id),
+          price: price,
+          unit: productForm.unit.toUpperCase(),
+          description: productForm.description.trim(),
+          image: productForm.image.trim() || editingProduct.image,
+          presentations: productForm.unit === 'presentation' ? productForm.presentations : undefined
+        }
+        
+        const response = await productService.updateProduct(editingProduct.id, updateData)
+        
+        if (response.success) {
+          const updatedProducts = safeProducts.map(prod => 
+            prod.id === editingProduct.id ? response.data : prod
+          )
+          setProducts(updatedProducts)
+          showToast('Producto actualizado correctamente', 'success')
+        } else {
+          showToast(response.error?.message || 'Error al actualizar producto', 'error')
+        }
+      } else {
+        // Create new product
+        console.log('➕ CREATING PRODUCT')
+        const productData = {
+          name: productForm.name.trim(),
+          categoryId: parseInt(productForm.category_id),
+          price: price,
+          unit: productForm.unit.toUpperCase(),
+          description: productForm.description.trim(),
+          image: productForm.image.trim() || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c',
+          active: true
+        }
+        
+        // Add presentations if it's a presentation product
+        if (productForm.unit === 'presentation') {
+          productData.presentations = productForm.presentations
+        }
+        
+        console.log('📦 Product data to send:', productData)
+        
+        const response = await productService.createProduct(productData)
+        console.log('📦 Create product response:', response)
+        
+        if (response.success) {
+          setProducts([...safeProducts, response.data])
+          // Go to last page to see the new product
+          const newTotalPages = Math.ceil((safeProducts.length + 1) / productsPerPage)
+          setCurrentPage(newTotalPages)
+          showToast('Producto creado correctamente', 'success')
+        } else {
+          console.error('❌ Error creating product:', response.error)
+          showToast(response.error?.message || 'Error al crear producto', 'error')
+        }
       }
       
-      // Add presentations if it's a presentation product
-      if (productForm.unit === 'presentation') {
-        newProduct.presentations = productForm.presentations
-      }
-      setProducts([...products, newProduct])
-      // Go to last page to see the new product
-      const newTotalPages = Math.ceil((products.length + 1) / productsPerPage)
-      setCurrentPage(newTotalPages)
-      showToast('Producto creado correctamente', 'success')
+      closeProductModal()
+    } catch (error) {
+      console.error('❌ Exception in handleProductSubmit:', error)
+      showToast('Error al procesar producto', 'error')
+    } finally {
+      setIsLoading(false)
     }
-
-    closeProductModal()
   }
 
   // Payment management functions
@@ -1696,7 +1752,7 @@ function AdminDashboard({
 
   const approvePayment = (paymentId) => {
     // Update payment status
-    const updatedPayments = payments.map(payment => 
+    const updatedPayments = safePayments.map(payment => 
       payment.id === paymentId 
         ? { ...payment, status: 'verified' }
         : payment
@@ -1704,9 +1760,9 @@ function AdminDashboard({
     setPayments(updatedPayments)
     
     // Find and update corresponding order status
-    const payment = payments.find(p => p.id === paymentId)
+    const payment = safePayments.find(p => p.id === paymentId)
     if (payment) {
-      const updatedOrders = orders.map(order => 
+      const updatedOrders = safeOrders.map(order => 
         order.id === payment.order_id && order.status === 'awaiting_payment'
           ? { ...order, status: 'preparing', payment_status: 'verified' }
           : order
@@ -1720,7 +1776,7 @@ function AdminDashboard({
 
   const rejectPayment = (paymentId) => {
     // Update payment status
-    const updatedPayments = payments.map(payment => 
+    const updatedPayments = safePayments.map(payment => 
       payment.id === paymentId 
         ? { ...payment, status: 'rejected' }
         : payment
@@ -1728,9 +1784,9 @@ function AdminDashboard({
     setPayments(updatedPayments)
     
     // Find and update corresponding order status
-    const payment = payments.find(p => p.id === paymentId)
+    const payment = safePayments.find(p => p.id === paymentId)
     if (payment) {
-      const updatedOrders = orders.map(order => 
+      const updatedOrders = safeOrders.map(order => 
         order.id === payment.order_id
           ? { ...order, status: 'cancelled', payment_status: 'rejected' }
           : order
@@ -1791,6 +1847,9 @@ function AdminDashboard({
     { name: 'Utensils', component: Utensils, label: 'Platos Elaborados' },
     { name: 'Package', component: Package, label: 'Productos Generales' }
   ]
+  
+  // Log para debug: mostrar iconos disponibles
+  console.log('🎨 ICONOS DISPONIBLES:', availableIcons.map(icon => icon.name))
 
   const availableColors = [
     '#e74c3c', // Rojo - Frutas/Carnes
@@ -1812,9 +1871,9 @@ function AdminDashboard({
   ]
 
   const updateOrderStatus = (orderId, newStatus) => {
-    const orderIndex = orders.findIndex(order => order.id === orderId)
+    const orderIndex = safeOrders.findIndex(order => order.id === orderId)
     if (orderIndex !== -1) {
-      const updatedOrders = [...orders]
+      const updatedOrders = [...safeOrders]
       updatedOrders[orderIndex].status = newStatus
       setOrders(updatedOrders)
       showToast(`Pedido ${newStatus === 'processing' ? 'procesado' : 'completado'} correctamente`, 'success')
@@ -1822,7 +1881,7 @@ function AdminDashboard({
   }
 
   const handleOrderAction = (orderId, action) => {
-    const payment = payments.find(p => p.order_id === orderId)
+    const payment = safePayments.find(p => p.order_id === orderId)
     
     switch (action) {
       case 'verify_payment':
@@ -1892,13 +1951,13 @@ function AdminDashboard({
   const getFilteredOrders = () => {
     switch (orderFilter) {
       case 'active':
-        return orders.filter(order => !['delivered', 'cancelled'].includes(order.status))
+        return safeOrders.filter(order => !['delivered', 'cancelled'].includes(order.status))
       case 'delivered':
-        return orders.filter(order => order.status === 'delivered')
+        return safeOrders.filter(order => order.status === 'delivered')
       case 'all':
-        return orders
+        return safeOrders
       default:
-        return orders
+        return safeOrders
     }
   }
 
@@ -1908,22 +1967,22 @@ function AdminDashboard({
   const getPaginatedProducts = () => {
     const startIndex = (currentPage - 1) * productsPerPage
     const endIndex = startIndex + productsPerPage
-    return products.slice(startIndex, endIndex)
+    return safeProducts.slice(startIndex, endIndex)
   }
 
-  const totalPages = Math.ceil(products.length / productsPerPage)
+  const totalPages = Math.ceil(safeProducts.length / productsPerPage)
   const paginatedProducts = getPaginatedProducts()
 
   // Statistics calculation
-  const awaitingPaymentOrders = orders.filter(order => order.status === 'awaiting_payment').length
-  const preparingOrders = orders.filter(order => order.status === 'preparing').length
-  const readyOrders = orders.filter(order => order.status === 'ready_for_shipping').length
-  const shippedOrders = orders.filter(order => order.status === 'shipped').length
-  const deliveredOrders = orders.filter(order => order.status === 'delivered').length
-  const activeOrders = orders.filter(order => !['delivered', 'cancelled'].includes(order.status)).length
-  const pendingPayments = payments.filter(payment => payment.status === 'pending' && payment.voucher).length
-  const totalProducts = products.length
-  const totalIncome = orders.filter(order => order.status === 'delivered').reduce((acc, curr) => acc + curr.total, 0)
+  const awaitingPaymentOrders = safeOrders.filter(order => order.status === 'awaiting_payment').length
+  const preparingOrders = safeOrders.filter(order => order.status === 'preparing').length
+  const readyOrders = safeOrders.filter(order => order.status === 'ready_for_shipping').length
+  const shippedOrders = safeOrders.filter(order => order.status === 'shipped').length
+  const deliveredOrders = safeOrders.filter(order => order.status === 'delivered').length
+  const activeOrders = safeOrders.filter(order => !['delivered', 'cancelled'].includes(order.status)).length
+  const pendingPayments = safePayments.filter(payment => payment.status === 'pending' && payment.voucher).length
+  const totalProducts = safeProducts.length
+  const totalIncome = safeOrders.filter(order => order.status === 'delivered').reduce((acc, curr) => acc + curr.total, 0)
 
   return (
     <AdminSection>
@@ -2045,7 +2104,7 @@ function AdminDashboard({
                   </tr>
                 </thead>
                 <tbody>
-                  {orders.slice(0, 5).map(order => (
+                  {safeOrders.slice(0, 5).map(order => (
                     <tr key={order.id}>
                       <td>{order.id}</td>
                       <td>{order.customer}</td>
@@ -2070,8 +2129,8 @@ function AdminDashboard({
             </TabHeader>
             
             <CategoriesGrid>
-              {categories.filter(category => category && category.id).map(category => {
-                const productCount = products.filter(product => product && product.category_id === category.id).length
+              {safeCategories.filter(category => category && category.id).map(category => {
+                const productCount = safeProducts.filter(product => product && product.category_id === category.id).length
                 const IconComponent = getIconComponent(category.icon || 'Package')
                 return (
                   <CategoryCard key={category.id}>
@@ -2105,7 +2164,7 @@ function AdminDashboard({
             
             <ProductsGrid>
               {paginatedProducts.map(product => {
-                const category = categories.find(c => c.id === product.category_id)
+                const category = safeCategories.find(c => c.id === product.category_id)
                 return (
                   <ProductCard key={product.id}>
                     <ProductImage>
@@ -2154,7 +2213,7 @@ function AdminDashboard({
                 </PaginationButton>
                 
                 <PaginationInfo>
-                  Página {currentPage} de {totalPages} ({products.length} productos)
+                  Página {currentPage} de {totalPages} ({safeProducts.length} productos)
                 </PaginationInfo>
                 
                 <PaginationButton 
@@ -2190,7 +2249,7 @@ function AdminDashboard({
                   onClick={() => setOrderFilter('all')}
                   style={{ fontSize: '14px' }}
                 >
-                  Todos ({orders.length})
+                  Todos ({safeOrders.length})
                 </button>
               </div>
             </div>
@@ -2257,7 +2316,7 @@ function AdminDashboard({
                   </tr>
                 </thead>
                 <tbody>
-                  {payments.filter(payment => payment.status !== 'pending').map(payment => (
+                  {safePayments.filter(payment => payment.status !== 'pending').map(payment => (
                     <tr key={payment.id}>
                       <td>{payment.order_id}</td>
                       <td>{payment.customer}</td>
@@ -2397,7 +2456,7 @@ function AdminDashboard({
                   required
                 >
                   <option value="">Seleccionar categoría</option>
-                  {categories.map(category => (
+                  {safeCategories.map(category => (
                     <option key={category.id} value={category.id}>
                       {category.name}
                     </option>
