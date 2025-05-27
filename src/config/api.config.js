@@ -6,8 +6,8 @@
 // Environment-based configuration
 const API_CONFIG = {
   development: {
-    BASE_URL: 'http://localhost:3001',
-    API_VERSION: 'v1',
+    BASE_URL: import.meta.env.VITE_API_URL || 'http://localhost:3001',
+    API_VERSION: import.meta.env.VITE_API_VERSION || 'v1',
     TIMEOUT: 10000,
   },
   production: {
@@ -20,11 +20,11 @@ const API_CONFIG = {
     API_VERSION: 'v1',
     TIMEOUT: 12000,
   }
-}
+};
 
 // Get current environment
-const ENV = process.env.NODE_ENV || 'development'
-const currentConfig = API_CONFIG[ENV]
+const ENV = import.meta.env.VITE_ENVIRONMENT || 'development';
+const currentConfig = API_CONFIG[ENV];
 
 // API Endpoints
 export const API_ENDPOINTS = {
@@ -32,10 +32,10 @@ export const API_ENDPOINTS = {
   BASE_URL: currentConfig.BASE_URL,
   API_VERSION: currentConfig.API_VERSION,
   TIMEOUT: currentConfig.TIMEOUT,
-  
+
   // Full API base URL
-  API_BASE: `${currentConfig.BASE_URL}/api/${currentConfig.API_VERSION}`,
-  
+  API_BASE: `<span class="math-inline">\{currentConfig\.BASE\_URL\}/api/</span>{currentConfig.API_VERSION}`,
+
   // Authentication endpoints
   AUTH: {
     LOGIN: '/auth/login',
@@ -44,7 +44,7 @@ export const API_ENDPOINTS = {
     REFRESH: '/auth/refresh',
     PROFILE: '/auth/profile',
   },
-  
+
   // Products endpoints
   PRODUCTS: {
     BASE: '/products',
@@ -54,14 +54,14 @@ export const API_ENDPOINTS = {
     FEATURED: '/products/featured',
     PRESENTATIONS: (productId) => `/products/${productId}/presentations`,
   },
-  
+
   // Categories endpoints
   CATEGORIES: {
     BASE: '/categories',
     BY_ID: (id) => `/categories/${id}`,
     WITH_PRODUCTS: '/categories/with-products',
   },
-  
+
   // Orders endpoints
   ORDERS: {
     BASE: '/orders',
@@ -71,7 +71,7 @@ export const API_ENDPOINTS = {
     UPDATE_STATUS: (id) => `/orders/${id}/status`,
     ITEMS: (orderId) => `/orders/${orderId}/items`,
   },
-  
+
   // Payments endpoints
   PAYMENTS: {
     BASE: '/payments',
@@ -80,21 +80,21 @@ export const API_ENDPOINTS = {
     VERIFY: (id) => `/payments/${id}/verify`,
     UPLOAD_VOUCHER: (id) => `/payments/${id}/voucher`,
   },
-  
+
   // Admin endpoints
   ADMIN: {
     DASHBOARD: '/admin/dashboard',
     STATS: '/admin/stats',
     REPORTS: '/admin/reports',
   },
-  
+
   // File upload endpoints
   UPLOADS: {
     IMAGES: '/uploads/images',
     VOUCHERS: '/uploads/vouchers',
     DOCUMENTS: '/uploads/documents',
   }
-}
+};
 
 // HTTP Status Codes
 export const HTTP_STATUS = {
@@ -109,33 +109,33 @@ export const HTTP_STATUS = {
   VALIDATION_ERROR: 422,
   INTERNAL_SERVER_ERROR: 500,
   SERVICE_UNAVAILABLE: 503,
-}
+};
 
 // Request headers
 export const DEFAULT_HEADERS = {
   'Content-Type': 'application/json',
   'Accept': 'application/json',
-}
+};
 
 // Auth token key for localStorage
-export const AUTH_TOKEN_KEY = 'ecommerce_auth_token'
-export const REFRESH_TOKEN_KEY = 'ecommerce_refresh_token'
-export const USER_DATA_KEY = 'ecommerce_user_data'
+export const AUTH_TOKEN_KEY = 'ecommerce_auth_token';
+export const REFRESH_TOKEN_KEY = 'ecommerce_refresh_token';
+export const USER_DATA_KEY = 'ecommerce_user_data';
 
-// API Feature flags (for gradual rollout)
+// API Feature flags (for gradual rollout) - CORREGIDO PARA VITE
 export const FEATURE_FLAGS = {
-  USE_MOCK_DATA: process.env.REACT_APP_USE_MOCK_DATA === 'true',
-  ENABLE_REAL_PAYMENTS: process.env.REACT_APP_ENABLE_REAL_PAYMENTS === 'true',
-  ENABLE_PUSH_NOTIFICATIONS: process.env.REACT_APP_ENABLE_PUSH_NOTIFICATIONS === 'true',
-  DEBUG_API_CALLS: process.env.REACT_APP_DEBUG_API === 'true',
-}
+  USE_MOCK_DATA: import.meta.env.VITE_USE_MOCK_DATA === 'true',
+  ENABLE_REAL_PAYMENTS: import.meta.env.VITE_ENABLE_REAL_PAYMENTS === 'true',
+  ENABLE_PUSH_NOTIFICATIONS: import.meta.env.VITE_ENABLE_PUSH_NOTIFICATIONS === 'true',
+  DEBUG_API_CALLS: import.meta.env.VITE_DEBUG_API === 'true',
+};
 
 // Pagination defaults
 export const PAGINATION = {
   DEFAULT_PAGE_SIZE: 12,
   MAX_PAGE_SIZE: 100,
   DEFAULT_PAGE: 1,
-}
+};
 
 // Cache configuration
 export const CACHE_CONFIG = {
@@ -143,7 +143,7 @@ export const CACHE_CONFIG = {
   CATEGORIES_CACHE_TIME: 30 * 60 * 1000, // 30 minutes
   ORDERS_CACHE_TIME: 2 * 60 * 1000, // 2 minutes
   USER_CACHE_TIME: 10 * 60 * 1000, // 10 minutes
-}
+};
 
 // Error messages
 export const ERROR_MESSAGES = {
@@ -155,7 +155,7 @@ export const ERROR_MESSAGES = {
   SERVER_ERROR: 'Error interno del servidor. Intenta más tarde.',
   TIMEOUT_ERROR: 'La petición tardó demasiado tiempo.',
   GENERIC_ERROR: 'Ocurrió un error inesperado.',
-}
+};
 
 export default {
   API_ENDPOINTS,
@@ -165,4 +165,4 @@ export default {
   PAGINATION,
   CACHE_CONFIG,
   ERROR_MESSAGES,
-}
+};
