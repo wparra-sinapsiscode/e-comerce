@@ -1608,8 +1608,9 @@ function AdminDashboard({
         const response = await categoryService.update(editingCategory.id, categoryData)
         
         if (response.success) {
+          // La categoría actualizada está directamente en response.data
           const updatedCategories = safeCategories.map(cat => 
-            cat.id === editingCategory.id ? response.data.category : cat
+            cat.id === editingCategory.id ? response.data : cat
           )
           setCategories(updatedCategories)
           showToast('Categoría actualizada correctamente', 'success')
@@ -1625,10 +1626,25 @@ function AdminDashboard({
         console.log('🏷️ CATEGORY SUBMIT: Respuesta del backend:', response)
         console.log('🏷️ CATEGORY SUBMIT: Success:', response.success)
         
+        // DIAGNÓSTICO: Estructura completa de la respuesta
+        console.log('🔍 ESTRUCTURA RESPUESTA:', {
+          fullResponse: response,
+          data: response.data,
+          dataData: response.data?.data,
+          success: response.success
+        })
+        
         if (response.success) {
           console.log('✅ CATEGORY SUBMIT: Categoría creada exitosamente')
-          console.log('🏷️ CATEGORY SUBMIT: Nueva categoría:', response.data.category)
-          setCategories([...safeCategories, response.data.category])
+          console.log('🏷️ CATEGORY SUBMIT: Nueva categoría (data.category):', response.data.category)
+          console.log('🏷️ CATEGORY SUBMIT: Nueva categoría (data.data):', response.data?.data)
+          console.log('🏷️ CATEGORY SUBMIT: Nueva categoría (data directamente):', response.data)
+          
+          // La categoría está directamente en response.data, no en response.data.category
+          const newCategory = response.data
+          console.log('🏷️ CATEGORY SUBMIT: Categoría procesada:', newCategory)
+          
+          setCategories([...safeCategories, newCategory])
           showToast('Categoría creada correctamente', 'success')
           closeCategoryModal()
         } else {
@@ -1703,8 +1719,12 @@ function AdminDashboard({
           price: price,
           unit: productForm.unit.toUpperCase(),
           description: productForm.description.trim(),
-          image: productForm.image.trim() || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c',
           active: true
+        }
+        
+        // Only add image if it's not empty
+        if (productForm.image.trim()) {
+          productData.image = productForm.image.trim()
         }
         
         // Add presentations if it's a presentation product
@@ -1712,7 +1732,24 @@ function AdminDashboard({
           productData.presentations = productForm.presentations
         }
         
-        console.log('📦 Product data to send:', productData)
+        console.log('📦 DATOS DEL PRODUCTO A CREAR:', {
+          name: productData.name,
+          categoryId: productData.categoryId,
+          price: productData.price,
+          unit: productData.unit,
+          description: productData.description,
+          image: productData.image,
+          active: productData.active,
+          presentations: productData.presentations
+        })
+        console.log('Tipos de datos:')
+        console.log('- name:', typeof productData.name, productData.name)
+        console.log('- categoryId:', typeof productData.categoryId, productData.categoryId)
+        console.log('- price:', typeof productData.price, productData.price)
+        console.log('- unit:', typeof productData.unit, productData.unit)
+        console.log('- description:', typeof productData.description, productData.description)
+        console.log('- image:', typeof productData.image, productData.image)
+        console.log('- active:', typeof productData.active, productData.active)
         
         const response = await productService.createProduct(productData)
         console.log('📦 Create product response:', response)
@@ -1725,6 +1762,12 @@ function AdminDashboard({
           showToast('Producto creado correctamente', 'success')
         } else {
           console.error('❌ Error creating product:', response.error)
+          console.error('❌ Errores de validación detallados:', response.error?.errors)
+          if (response.error?.errors) {
+            response.error.errors.forEach((err, index) => {
+              console.error(`Error ${index + 1}:`, err)
+            })
+          }
           showToast(response.error?.message || 'Error al crear producto', 'error')
         }
       }
