@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, memo } from 'react'
 import styled from 'styled-components'
-import { Home, Tags, Package, ClipboardList, CreditCard, LogOut, Search, Plus, Edit, Trash2, Eye, X, Save, Upload, Image as ImageIcon, Apple, Beef, Fish, Carrot, Milk, Wheat, Wine, ShoppingBasket, Coffee, Egg, Droplets, Zap, Flower2, Soup, Utensils, Check, XCircle, Clock, AlertCircle, ZoomIn, ArrowRight, Truck, Package2, Link, Camera } from 'lucide-react'
+import { Home, Tags, Package, ClipboardList, CreditCard, LogOut, Search, Plus, Edit, Trash2, Eye, X, Save, Upload, Image as ImageIcon, Apple, Beef, Fish, Carrot, Milk, Wheat, Wine, ShoppingBasket, Coffee, Egg, Droplets, Zap, Flower2, Soup, Utensils, Check, XCircle, Clock, AlertCircle, ZoomIn, ArrowRight, Truck, Package2, Link, Camera, User, DollarSign } from 'lucide-react'
 
 const AdminSection = styled.section`
   display: flex;
@@ -685,139 +685,392 @@ const PresentationItem = styled.div`
 
 const PaymentModal = styled.div`
   background: white;
-  border-radius: var(--radius);
-  padding: 30px;
-  max-width: 600px;
-  width: 90%;
-  max-height: 90vh;
-  overflow-y: auto;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+  border-radius: 16px;
+  padding: 0;
+  max-width: 700px;
+  width: 95%;
+  max-height: 95vh;
+  overflow: hidden;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
+  animation: modalSlideIn 0.3s ease-out;
   
-  h2 {
-    margin-bottom: 25px;
-    color: var(--text-color);
-    display: flex;
-    align-items: center;
-    gap: 10px;
+  @keyframes modalSlideIn {
+    from {
+      opacity: 0;
+      transform: scale(0.95) translateY(-20px);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
   }
 `
 
-const PaymentDetails = styled.div`
-  background: #f8f9fa;
-  border-radius: var(--radius);
-  padding: 20px;
-  margin-bottom: 25px;
+const PaymentModalHeader = styled.div`
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 24px 30px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   
-  .detail-row {
+  h2 {
+    margin: 0;
+    font-size: 24px;
+    font-weight: 600;
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    padding: 8px 0;
-    border-bottom: 1px solid #eee;
+    gap: 12px;
+  }
+  
+  .close-btn {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: white;
+    transition: all 0.2s ease;
     
-    &:last-child {
-      border-bottom: none;
-      margin-top: 10px;
-      padding-top: 15px;
-      border-top: 2px solid #ddd;
+    &:hover {
+      background: rgba(255, 255, 255, 0.3);
+      transform: scale(1.1);
+    }
+  }
+`
+
+const PaymentModalBody = styled.div`
+  padding: 30px;
+  max-height: calc(95vh - 140px);
+  overflow-y: auto;
+`
+
+const PaymentDetails = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-bottom: 30px;
+`
+
+const DetailCard = styled.div`
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 20px;
+  transition: all 0.2s ease;
+  
+  &:hover {
+    border-color: #d1d5db;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  }
+  
+  .detail-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+  }
+  
+  .detail-value {
+    font-size: 16px;
+    font-weight: 600;
+    color: #111827;
+    word-break: break-word;
+  }
+  
+  &.amount-card {
+    grid-column: 1 / -1;
+    background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+    border: 2px solid #d1d5db;
+    
+    .detail-value {
+      font-size: 24px;
+      color: #059669;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+  }
+  
+  &.status-card {
+    .detail-value {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+  }
+`
+
+const CustomerInfo = styled.div`
+  background: #f9fafb;
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 30px;
+  border-left: 4px solid #667eea;
+  
+  h3 {
+    margin: 0 0 16px 0;
+    color: #111827;
+    font-size: 18px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .customer-details {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+  }
+  
+  .customer-field {
+    .field-label {
+      font-size: 12px;
       font-weight: 600;
+      color: #6b7280;
+      text-transform: uppercase;
+      margin-bottom: 4px;
     }
     
-    .label {
-      color: var(--gray);
-      font-weight: 500;
-    }
-    
-    .value {
-      color: var(--text-color);
+    .field-value {
+      font-size: 14px;
+      color: #374151;
       font-weight: 500;
     }
   }
 `
 
 const VoucherSection = styled.div`
-  margin: 25px 0;
-  text-align: center;
+  margin: 30px 0;
   
   .voucher-title {
-    margin-bottom: 15px;
-    color: var(--text-color);
+    margin-bottom: 20px;
+    color: #111827;
+    font-size: 18px;
     font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .voucher-container {
+    background: #f9fafb;
+    border-radius: 16px;
+    padding: 24px;
+    border: 2px solid #e5e7eb;
+    transition: all 0.3s ease;
+    
+    &.has-voucher {
+      border-color: #10b981;
+      background: #ecfdf5;
+    }
+    
+    &.cash-payment {
+      border-color: #f59e0b;
+      background: #fffbeb;
+    }
   }
   
   .voucher-image {
     max-width: 100%;
-    max-height: 300px;
-    border-radius: var(--radius);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    max-height: 400px;
+    border-radius: 12px;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
     cursor: pointer;
-    transition: var(--transition);
+    transition: all 0.3s ease;
+    border: 3px solid white;
     
     &:hover {
-      transform: scale(1.02);
+      transform: scale(1.05) rotate(1deg);
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
     }
   }
   
   .no-voucher {
-    padding: 40px;
-    background: #f8f9fa;
-    border-radius: var(--radius);
-    color: var(--gray);
-    border: 2px dashed #ddd;
+    text-align: center;
+    padding: 60px 40px;
+    
+    .cash-icon {
+      margin-bottom: 20px;
+      padding: 20px;
+      background: #fbbf24;
+      color: white;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .cash-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: #92400e;
+      margin-bottom: 8px;
+    }
+    
+    .cash-subtitle {
+      font-size: 16px;
+      color: #78350f;
+      margin-bottom: 16px;
+    }
+    
+    .cash-note {
+      font-size: 14px;
+      color: #a16207;
+      background: rgba(251, 191, 36, 0.1);
+      padding: 12px 20px;
+      border-radius: 8px;
+      display: inline-block;
+    }
   }
 `
 
 const StatusActions = styled.div`
   display: flex;
-  gap: 15px;
+  gap: 16px;
   justify-content: center;
-  margin-top: 25px;
+  margin-top: 40px;
+  padding-top: 30px;
+  border-top: 1px solid #e5e7eb;
   
   .action-btn {
-    padding: 12px 20px;
+    padding: 16px 32px;
     border: none;
-    border-radius: var(--radius);
+    border-radius: 12px;
     font-weight: 600;
+    font-size: 16px;
     cursor: pointer;
-    transition: var(--transition);
+    transition: all 0.3s ease;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
+    min-width: 160px;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+    
+    &::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+      transition: left 0.5s;
+    }
+    
+    &:hover::before {
+      left: 100%;
+    }
     
     &.approve {
-      background: #22c55e;
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
       color: white;
+      box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
       
       &:hover {
-        background: #16a34a;
-        transform: translateY(-1px);
+        background: linear-gradient(135deg, #059669 0%, #047857 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
+      }
+      
+      &:active {
+        transform: translateY(0px);
       }
     }
     
     &.reject {
-      background: #ef4444;
+      background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
       color: white;
+      box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
       
       &:hover {
-        background: #dc2626;
-        transform: translateY(-1px);
+        background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(239, 68, 68, 0.4);
+      }
+      
+      &:active {
+        transform: translateY(0px);
       }
     }
     
     &.close {
-      background: var(--gray);
-      color: white;
+      background: #f3f4f6;
+      color: #374151;
+      border: 2px solid #d1d5db;
       
       &:hover {
-        background: var(--gray-dark);
+        background: #e5e7eb;
+        border-color: #9ca3af;
+        transform: translateY(-1px);
       }
     }
-    
-    &:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-      transform: none;
-    }
+  }
+`
+
+const PaymentMethodBadge = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+  
+  &.transfer {
+    background: #dbeafe;
+    color: #1e40af;
+  }
+  
+  &.yape {
+    background: #fef3c7;
+    color: #92400e;
+  }
+  
+  &.plin {
+    background: #e0e7ff;
+    color: #3730a3;
+  }
+  
+  &.cash {
+    background: #fef3c7;
+    color: #92400e;
+  }
+`
+
+const StatusBadge = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  
+  &.verified {
+    background: #d1fae5;
+    color: #065f46;
+  }
+  
+  &.pending {
+    background: #fef3c7;
+    color: #92400e;
+  }
+  
+  &.rejected {
+    background: #fee2e2;
+    color: #991b1b;
   }
 `
 
@@ -1866,6 +2119,21 @@ function AdminDashboard({
     }
   }
 
+  const getPaymentMethodIcon = (method) => {
+    switch(method) {
+      case 'TRANSFER': return '🏦'
+      case 'YAPE': return '📱'
+      case 'PLIN': return '💳'
+      case 'CASH': return '💵'
+      default: return '💰'
+    }
+  }
+
+  // Get order data for payment modal
+  const getOrderForPayment = (payment) => {
+    return safeOrders.find(order => order.id === payment.order_id)
+  }
+
   // Payment management functions
   const openPaymentModal = (payment, mode = 'verify') => {
     setSelectedPayment(payment)
@@ -2801,131 +3069,195 @@ function AdminDashboard({
         </ModalOverlay>
       )}
 
-      {/* Payment Verification Modal */}
+      {/* Payment Verification Modal - Diseño Mejorado */}
       {showPaymentModal && selectedPayment && (
         <ModalOverlay onClick={closePaymentModal}>
           <PaymentModal onClick={(e) => e.stopPropagation()}>
-            <h2>
-              <CreditCard size={24} />
-              Verificación de Pago
-            </h2>
-            
-            <PaymentDetails>
-              <div className="detail-row">
-                <span className="label">ID de Pago:</span>
-                <span className="value">{selectedPayment.id}</span>
-              </div>
-              <div className="detail-row">
-                <span className="label">ID de Pedido:</span>
-                <span className="value">{selectedPayment.order_id}</span>
-              </div>
-              <div className="detail-row">
-                <span className="label">Cliente:</span>
-                <span className="value">{selectedPayment.customer}</span>
-              </div>
-              <div className="detail-row">
-                <span className="label">Fecha:</span>
-                <span className="value">{formatDate(selectedPayment.date)}</span>
-              </div>
-              <div className="detail-row">
-                <span className="label">Método de Pago:</span>
-                <span className="value">{getPaymentMethodText(selectedPayment.method)}</span>
-              </div>
-              <div className="detail-row">
-                <span className="label">Estado Actual:</span>
-                <span className="value">
-                  <Status className={
-                    selectedPayment.status === 'verified' ? 'completed' : 
-                    selectedPayment.status === 'rejected' ? 'pending' : 'pending'
-                  } style={
-                    selectedPayment.status === 'rejected' ? { background: '#fee2e2', color: '#dc2626' } : {}
-                  }>
-                    {selectedPayment.status === 'verified' ? 'Verificado' : 
-                     selectedPayment.status === 'rejected' ? 'Rechazado' : 'Pendiente'}
-                  </Status>
-                </span>
-              </div>
-              <div className="detail-row">
-                <span className="label">Monto:</span>
-                <span className="value">S/ {formatPrice(selectedPayment.amount)}</span>
-              </div>
-            </PaymentDetails>
-
-            <VoucherSection>
-              <h3 className="voucher-title">Comprobante de Pago</h3>
-              {selectedPayment.voucher ? (
-                <img 
-                  src={selectedPayment.voucher} 
-                  alt="Comprobante de pago"
-                  className="voucher-image"
-                  onClick={() => window.open(selectedPayment.voucher, '_blank')}
-                />
-              ) : (
-                <div className="no-voucher">
-                  <AlertCircle size={40} style={{ marginBottom: '10px', opacity: 0.5 }} />
-                  <p>No se ha adjuntado comprobante de pago</p>
-                  <small>El cliente pagará contra entrega</small>
-                </div>
-              )}
-            </VoucherSection>
-
-            <StatusActions>
-              {paymentModalMode === 'verify' && selectedPayment.status === 'pending' && selectedPayment.voucher && (
-                <>
-                  <button 
-                    className="action-btn approve"
-                    onClick={() => approvePayment(selectedPayment.id)}
-                  >
-                    <Check size={18} />
-                    Aprobar Pago
-                  </button>
-                  <button 
-                    className="action-btn reject"
-                    onClick={() => rejectPayment(selectedPayment.id)}
-                  >
-                    <XCircle size={18} />
-                    Rechazar Pago
-                  </button>
-                </>
-              )}
-              
-              {paymentModalMode === 'view' && (
-                <div style={{ textAlign: 'center', padding: '10px', color: '#6b7280', fontSize: '14px' }}>
-                  📋 Vista de solo lectura - Las verificaciones se manejan desde Pedidos
-                </div>
-              )}
-              
-              {selectedPayment.status === 'verified' && (
-                <div style={{ textAlign: 'center', padding: '20px' }}>
-                  <Status className="completed" style={{ fontSize: '16px', padding: '10px 20px' }}>
-                    <Check size={20} />
-                    Pago Verificado y Aprobado
-                  </Status>
-                </div>
-              )}
-              
-              {selectedPayment.status === 'rejected' && (
-                <div style={{ textAlign: 'center', padding: '20px' }}>
-                  <Status className="pending" style={{ 
-                    fontSize: '16px', 
-                    padding: '10px 20px',
-                    background: '#fee2e2', 
-                    color: '#dc2626' 
-                  }}>
-                    <XCircle size={20} />
-                    Pago Rechazado
-                  </Status>
-                </div>
-              )}
-              
-              <button 
-                className="action-btn close"
-                onClick={closePaymentModal}
-              >
-                <X size={18} />
-                Cerrar
+            <PaymentModalHeader>
+              <h2>
+                <CreditCard size={28} />
+                Verificación de Pago
+              </h2>
+              <button className="close-btn" onClick={closePaymentModal}>
+                <X size={20} />
               </button>
-            </StatusActions>
+            </PaymentModalHeader>
+            
+            <PaymentModalBody>
+              {/* Información del Cliente */}
+              <CustomerInfo>
+                <h3>
+                  <User size={20} />
+                  Información del Cliente
+                </h3>
+                <div className="customer-details">
+                  <div className="customer-field">
+                    <div className="field-label">Cliente</div>
+                    <div className="field-value">{selectedPayment.customer || selectedPayment.customer_name}</div>
+                  </div>
+                  <div className="customer-field">
+                    <div className="field-label">Teléfono</div>
+                    <div className="field-value">{selectedPayment.customer_phone}</div>
+                  </div>
+                  <div className="customer-field">
+                    <div className="field-label">Fecha del Pedido</div>
+                    <div className="field-value">{formatDate(selectedPayment.date)}</div>
+                  </div>
+                  <div className="customer-field">
+                    <div className="field-label">ID del Pedido</div>
+                    <div className="field-value">{selectedPayment.order_id}</div>
+                  </div>
+                </div>
+              </CustomerInfo>
+
+              {/* Detalles del Pago */}
+              <PaymentDetails>
+                <DetailCard>
+                  <div className="detail-label">ID de Pago</div>
+                  <div className="detail-value">{selectedPayment.id}</div>
+                </DetailCard>
+
+                <DetailCard>
+                  <div className="detail-label">Método de Pago</div>
+                  <div className="detail-value">
+                    <PaymentMethodBadge className={selectedPayment.method?.toLowerCase()}>
+                      {getPaymentMethodIcon(selectedPayment.method)}
+                      {getPaymentMethodText(selectedPayment.method)}
+                    </PaymentMethodBadge>
+                  </div>
+                </DetailCard>
+
+                <DetailCard className="status-card">
+                  <div className="detail-label">Estado del Pago</div>
+                  <div className="detail-value">
+                    <StatusBadge className={selectedPayment.status}>
+                      {selectedPayment.status === 'verified' && <Check size={16} />}
+                      {selectedPayment.status === 'rejected' && <XCircle size={16} />}
+                      {selectedPayment.status === 'pending' && <Clock size={16} />}
+                      {selectedPayment.status === 'verified' ? 'Verificado' : 
+                       selectedPayment.status === 'rejected' ? 'Rechazado' : 'Pendiente'}
+                    </StatusBadge>
+                  </div>
+                </DetailCard>
+
+                <DetailCard>
+                  <div className="detail-label">Fecha de Pago</div>
+                  <div className="detail-value">{formatDate(selectedPayment.date)}</div>
+                </DetailCard>
+
+                <DetailCard className="amount-card">
+                  <div className="detail-label">Monto Total</div>
+                  <div className="detail-value">
+                    <DollarSign size={24} />
+                    S/ {formatPrice(selectedPayment.amount)}
+                  </div>
+                </DetailCard>
+              </PaymentDetails>
+
+              {/* Sección del Comprobante */}
+              <VoucherSection>
+                <h3 className="voucher-title">
+                  <ImageIcon size={20} />
+                  Comprobante de Pago
+                </h3>
+                <div className={`voucher-container ${selectedPayment.voucher ? 'has-voucher' : 'cash-payment'}`}>
+                  {selectedPayment.voucher ? (
+                    <img 
+                      src={selectedPayment.voucher} 
+                      alt="Comprobante de pago"
+                      className="voucher-image"
+                      onClick={() => window.open(selectedPayment.voucher, '_blank')}
+                    />
+                  ) : (
+                    <div className="no-voucher">
+                      <div className="cash-icon">
+                        <DollarSign size={32} />
+                      </div>
+                      <div className="cash-title">Pago en Efectivo</div>
+                      <div className="cash-subtitle">Contra Entrega</div>
+                      <div className="cash-note">
+                        El cliente pagará el monto total al momento de la entrega
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </VoucherSection>
+
+              {/* Acciones del Pago */}
+              <StatusActions>
+                {paymentModalMode === 'verify' && selectedPayment.status === 'pending' && (
+                  <>
+                    <button 
+                      className="action-btn approve"
+                      onClick={() => approvePayment(selectedPayment.id)}
+                    >
+                      <Check size={20} />
+                      {selectedPayment.voucher ? 'Aprobar Pago' : 'Confirmar Pedido en Efectivo'}
+                    </button>
+                    <button 
+                      className="action-btn reject"
+                      onClick={() => rejectPayment(selectedPayment.id)}
+                    >
+                      <XCircle size={20} />
+                      {selectedPayment.voucher ? 'Rechazar Pago' : 'Cancelar Pedido'}
+                    </button>
+                  </>
+                )}
+                
+                {paymentModalMode === 'verify' && selectedPayment.status === 'pending' && !selectedPayment.voucher && (
+                  <div style={{ 
+                    textAlign: 'center', 
+                    padding: '16px',
+                    background: '#fffbeb',
+                    borderRadius: '12px',
+                    marginBottom: '20px',
+                    border: '2px solid #fbbf24'
+                  }}>
+                    <AlertCircle size={20} style={{ color: '#92400e', marginBottom: '8px' }} />
+                    <div style={{ color: '#92400e', fontWeight: '600', fontSize: '14px' }}>
+                      ⚠️ Pedido con Pago en Efectivo
+                    </div>
+                    <div style={{ color: '#78350f', fontSize: '13px', marginTop: '4px' }}>
+                      El cliente debe pagar S/ {formatPrice(selectedPayment.amount)} al momento de la entrega
+                    </div>
+                  </div>
+                )}
+                
+                {selectedPayment.status === 'verified' && (
+                  <div style={{ 
+                    textAlign: 'center', 
+                    padding: '20px',
+                    background: '#d1fae5',
+                    borderRadius: '12px',
+                    color: '#065f46',
+                    fontWeight: '600'
+                  }}>
+                    <Check size={24} style={{ marginBottom: '8px' }} />
+                    <div>Pago Verificado y Aprobado</div>
+                    <small style={{ fontWeight: '400', opacity: '0.8' }}>
+                      El pedido ha pasado a estado "Preparando"
+                    </small>
+                  </div>
+                )}
+                
+                {selectedPayment.status === 'rejected' && (
+                  <div style={{ 
+                    textAlign: 'center', 
+                    padding: '20px',
+                    background: '#fee2e2',
+                    borderRadius: '12px',
+                    color: '#991b1b',
+                    fontWeight: '600'
+                  }}>
+                    <XCircle size={24} style={{ marginBottom: '8px' }} />
+                    <div>Pago Rechazado</div>
+                    <small style={{ fontWeight: '400', opacity: '0.8' }}>
+                      El pedido ha sido cancelado
+                    </small>
+                  </div>
+                )}
+              </StatusActions>
+            </PaymentModalBody>
           </PaymentModal>
         </ModalOverlay>
       )}
