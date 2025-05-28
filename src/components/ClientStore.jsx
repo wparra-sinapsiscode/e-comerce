@@ -1288,8 +1288,9 @@ function ClientStore({
   })
   const [orderConfirmed, setOrderConfirmed] = useState(false)
   const [confirmedOrder, setConfirmedOrder] = useState(null)
-  const [voucherFile, setVoucherFile] = useState(null)
-  const [voucherPreview, setVoucherPreview] = useState(null)
+  // VOUCHER: Temporalmente deshabilitado
+  // const [voucherFile, setVoucherFile] = useState(null)
+  // const [voucherPreview, setVoucherPreview] = useState(null)
   const [selectedPresentations, setSelectedPresentations] = useState({})
 
   // Filter and sort products based on category, search, and other filters
@@ -1613,26 +1614,140 @@ function ClientStore({
         })),
         subtotal,
         tax_amount: tax,
-        total_amount: total,
-        voucher_file: voucherFile
+        total_amount: total
+        // VOUCHER: Temporalmente deshabilitado
+        // voucher_file: voucherFile
       }
       
       console.log('🛒 ClientStore: Datos de la orden listos para enviar:', orderData);
       
-      // Submit order through API
-      const response = await orderService.createOrder(orderData)
+      // PASO 1: Crear la orden (sin voucher)
+      // VOUCHER: Temporalmente deshabilitado - no hay voucher_file que extraer
+      // const { voucher_file, ...orderDataWithoutVoucher } = orderData
+      const orderResponse = await orderService.createOrder(orderData)
       
-      if (response.success) {
+      if (orderResponse.success) {
+        console.log('✅ Orden creada exitosamente:', orderResponse);
+        const orderId = orderResponse.data?.id || orderResponse.data?.data?.id;
+        console.log('🆔 Order ID extraído:', orderId);
+        
+        // PASO 2: Crear el pago (SIMPLIFICADO - sin voucher)
+        if (orderData.payment_method === 'transfer') {
+          console.log('📄 Creando pago (backend pattern)...');
+          
+          // Validar que todos los datos requeridos estén presentes
+          if (!orderId) {
+            console.error('❌ Error: orderId es undefined');
+            showToast('Error: No se pudo obtener el ID de la orden', 'error');
+            return;
+          }
+          
+          if (!orderData.customer_name || !orderData.customer_phone) {
+            console.error('❌ Error: Faltan datos del cliente', {
+              customer_name: orderData.customer_name,
+              customer_phone: orderData.customer_phone
+            });
+            showToast('Error: Faltan datos del cliente', 'error');
+            return;
+          }
+          
+          // PASO 2A: Crear pago con todos los campos requeridos por el schema
+          const paymentData = {
+            order_id: orderId,
+            customer_name: orderData.customer_name,
+            customer_phone: orderData.customer_phone,
+            method: orderData.payment_method.toUpperCase(), // ✅ Backend controller espera MAYÚSCULAS
+            amount: parseFloat(total)
+          }
+          
+          // Debug adicional
+          console.log('🔍 Validando tipos de datos:', {
+            order_id: typeof orderId,
+            customer_name: typeof orderData.customer_name,
+            customer_phone: typeof orderData.customer_phone,
+            method: typeof paymentData.method,
+            amount: typeof paymentData.amount,
+            methodValue: paymentData.method,
+            amountValue: paymentData.amount
+          });
+          
+          console.log('💳 Payment data (sin voucher):', paymentData);
+          
+          // VOUCHER: Temporalmente deshabilitado - omitir verificación de pagos duplicados
+          // // Verificar si ya existe un pago para esta orden
+          // try {
+          //   const existingPayment = await paymentService.getPaymentByOrder(orderId);
+          //   if (existingPayment.success) {
+          //     console.warn('⚠️ Ya existe un pago para esta orden:', existingPayment.data);
+          //     showToast('Esta orden ya tiene un pago asociado', 'warning');
+          //     return;
+          //   }
+          // } catch (checkError) {
+          //   console.log('✅ No existe pago previo para esta orden (esperado)');
+          // }
+          
+          // Test validación frontend antes de enviar (TEMPORAL - omitido por inconsistencia backend)
+          console.log('⚠️ Omitiendo validación frontend debido a inconsistencia con backend controller');
+          // try {
+          //   const { validateCreatePayment } = await import('../schemas/payment.schema.js');
+          //   const validation = validateCreatePayment(paymentData);
+          //   console.log('🔍 Validación frontend:', validation);
+          //   if (!validation.success) {
+          //     console.error('❌ Error validación frontend:', validation.error);
+          //   }
+          // } catch (validationTestError) {
+          //   console.error('Error testing frontend validation:', validationTestError);
+          // }
+          
+          const paymentResponse = await paymentService.createPayment(paymentData)
+          
+          if (paymentResponse.success) {
+            console.log('✅ Pago creado exitosamente:', paymentResponse.data.id);
+            showToast('Pago registrado correctamente', 'success')
+            
+            // VOUCHER: Temporalmente deshabilitado
+            // // PASO 2B: Subir voucher por separado
+            // console.log('📷 Subiendo voucher...');
+            // const voucherResponse = await paymentService.uploadVoucher(
+            //   paymentResponse.data.id,
+            //   voucherFile  // archivo original, no base64
+            // )
+            // 
+            // if (voucherResponse.success) {
+            //   console.log('✅ Voucher subido exitosamente');
+            // } else {
+            //   console.error('❌ Error subiendo voucher:', voucherResponse.error);
+            //   showToast('Pago creado pero falló la subida del comprobante', 'warning')
+            // }
+          } else {
+            console.error('❌ Error creando pago:', paymentResponse.error);
+            console.error('❌ Errores específicos:', paymentResponse.error?.errors);
+            console.error('❌ Datos enviados que fallaron:', paymentData);
+            showToast('Pedido creado pero falló el registro del pago', 'warning')
+          }
+        }
+        
         // Clear cart and set confirmed order
+        console.log('📦 Orden completa:', orderResponse.data);
         setCart([])
-        setConfirmedOrder(response.order)
+        setConfirmedOrder({
+          id: orderId,
+          customer_name: orderData.customer_name,
+          phone: orderData.customer_phone,           // ✅ Corregido: phone no customer_phone
+          address: orderData.customer_address,       // ✅ Corregido: address no customer_address
+          payment_method: orderData.payment_method,
+          total: orderData.total_amount,             // ✅ Corregido: total no total_amount
+          items: orderResponse.data.items || [],
+          ...orderResponse.data // Include any additional fields from response
+        })
         setOrderConfirmed(true)
-        setVoucherFile(null)
-        setVoucherPreview(null)
+        // VOUCHER: Temporalmente deshabilitado
+        // setVoucherFile(null)
+        // setVoucherPreview(null)
         setActiveView('confirmation')
         showToast('¡Pedido realizado con éxito!', 'success')
       } else {
-        showToast(response.message || 'Error al procesar el pedido', 'error')
+        showToast(orderResponse.message || 'Error al procesar el pedido', 'error')
       }
     } catch (error) {
       console.error('Checkout error:', error)
@@ -1685,48 +1800,51 @@ function ClientStore({
   }
 
   // Voucher handling functions
-  const handleVoucherUpload = (event) => {
-    const file = event.target.files[0]
-    if (file) {
-      processVoucherFile(file)
-    }
-  }
+  // VOUCHER: Temporalmente deshabilitado
+  // const handleVoucherUpload = (event) => {
+  //   const file = event.target.files[0]
+  //   if (file) {
+  //     processVoucherFile(file)
+  //   }
+  // }
 
-  const processVoucherFile = (file) => {
-    // Validate file type
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'application/pdf']
-    if (!allowedTypes.includes(file.type)) {
-      showToast('Solo se permiten archivos de imagen (JPG, PNG, GIF) o PDF', 'error')
-      return
-    }
+  // VOUCHER: Temporalmente deshabilitado
+  // const processVoucherFile = (file) => {
+  //   // Validate file type
+  //   const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'application/pdf']
+  //   if (!allowedTypes.includes(file.type)) {
+  //     showToast('Solo se permiten archivos de imagen (JPG, PNG, GIF) o PDF', 'error')
+  //     return
+  //   }
+  //
+  //   // Validate file size (max 5MB)
+  //   if (file.size > 5 * 1024 * 1024) {
+  //     showToast('El archivo no puede superar los 5MB', 'error')
+  //     return
+  //   }
+  //
+  //   setVoucherFile(file)
+  //
+  //   // Create preview for images
+  //   if (file.type.startsWith('image/')) {
+  //     const reader = new FileReader()
+  //     reader.onload = (e) => {
+  //       setVoucherPreview(e.target.result)
+  //     }
+  //     reader.readAsDataURL(file)
+  //   } else {
+  //     setVoucherPreview(null)
+  //   }
+  //
+  //   showToast('Voucher adjuntado correctamente', 'success')
+  // }
 
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      showToast('El archivo no puede superar los 5MB', 'error')
-      return
-    }
-
-    setVoucherFile(file)
-
-    // Create preview for images
-    if (file.type.startsWith('image/')) {
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        setVoucherPreview(e.target.result)
-      }
-      reader.readAsDataURL(file)
-    } else {
-      setVoucherPreview(null)
-    }
-
-    showToast('Voucher adjuntado correctamente', 'success')
-  }
-
-  const removeVoucher = () => {
-    setVoucherFile(null)
-    setVoucherPreview(null)
-    showToast('Voucher eliminado', 'info')
-  }
+  // VOUCHER: Temporalmente deshabilitado
+  // const removeVoucher = () => {
+  //   setVoucherFile(null)
+  //   setVoucherPreview(null)
+  //   showToast('Voucher eliminado', 'info')
+  // }
 
   const formatFileSize = (bytes) => {
     if (bytes === 0) return '0 Bytes'
@@ -1736,73 +1854,74 @@ function ClientStore({
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
   }
 
-  // Render voucher upload component
-  const renderVoucherUpload = () => {
-    // Don't show voucher upload for cash payments
-    if (checkoutData.paymentMethod === 'cash') {
-      return null
-    }
-
-    return (
-      <VoucherUpload>
-        <div className="voucher-label">
-          <Upload size={16} />
-          Comprobante de pago (opcional)
-        </div>
-        
-        {!voucherFile ? (
-          <>
-            <div 
-              className="upload-area"
-              onClick={() => document.getElementById('voucher-input').click()}
-            >
-              <div className="upload-content">
-                <Upload size={40} />
-                <p>Haz clic para subir tu comprobante de pago</p>
-                <p className="file-types">Formatos: JPG, PNG, GIF, PDF (máx. 5MB)</p>
-              </div>
-            </div>
-            <input
-              id="voucher-input"
-              type="file"
-              accept=".jpg,.jpeg,.png,.gif,.pdf"
-              onChange={handleVoucherUpload}
-            />
-          </>
-        ) : (
-          <div className="voucher-preview">
-            <div className="preview-header">
-              <span>Comprobante adjuntado</span>
-              <button type="button" onClick={removeVoucher}>
-                <X size={16} />
-              </button>
-            </div>
-            <div className="preview-content">
-              {voucherFile.type.startsWith('image/') ? (
-                <>
-                  {voucherPreview && <img src={voucherPreview} alt="Preview" />}
-                  <div className="file-info">
-                    <div className="file-name">{voucherFile.name}</div>
-                    <div className="file-size">{formatFileSize(voucherFile.size)}</div>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="file-icon">
-                    <FileText size={24} />
-                  </div>
-                  <div className="file-info">
-                    <div className="file-name">{voucherFile.name}</div>
-                    <div className="file-size">{formatFileSize(voucherFile.size)}</div>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        )}
-      </VoucherUpload>
-    )
-  }
+  // VOUCHER: Temporalmente deshabilitado
+  // // Render voucher upload component
+  // const renderVoucherUpload = () => {
+  //   // Don't show voucher upload for cash payments
+  //   if (checkoutData.paymentMethod === 'cash') {
+  //     return null
+  //   }
+  //
+  //   return (
+  //     <VoucherUpload>
+  //       <div className="voucher-label">
+  //         <Upload size={16} />
+  //         Comprobante de pago (opcional)
+  //       </div>
+  //       
+  //       {!voucherFile ? (
+  //         <>
+  //           <div 
+  //             className="upload-area"
+  //             onClick={() => document.getElementById('voucher-input').click()}
+  //           >
+  //             <div className="upload-content">
+  //               <Upload size={40} />
+  //               <p>Haz clic para subir tu comprobante de pago</p>
+  //               <p className="file-types">Formatos: JPG, PNG, GIF, PDF (máx. 5MB)</p>
+  //             </div>
+  //           </div>
+  //           <input
+  //             id="voucher-input"
+  //             type="file"
+  //             accept=".jpg,.jpeg,.png,.gif,.pdf"
+  //             onChange={handleVoucherUpload}
+  //           />
+  //         </>
+  //       ) : (
+  //         <div className="voucher-preview">
+  //           <div className="preview-header">
+  //             <span>Comprobante adjuntado</span>
+  //             <button type="button" onClick={removeVoucher}>
+  //               <X size={16} />
+  //             </button>
+  //           </div>
+  //           <div className="preview-content">
+  //             {voucherFile.type.startsWith('image/') ? (
+  //               <>
+  //                 {voucherPreview && <img src={voucherPreview} alt="Preview" />}
+  //                 <div className="file-info">
+  //                   <div className="file-name">{voucherFile.name}</div>
+  //                   <div className="file-size">{formatFileSize(voucherFile.size)}</div>
+  //                 </div>
+  //               </>
+  //             ) : (
+  //               <>
+  //                 <div className="file-icon">
+  //                   <FileText size={24} />
+  //                 </div>
+  //                 <div className="file-info">
+  //                   <div className="file-name">{voucherFile.name}</div>
+  //                   <div className="file-size">{formatFileSize(voucherFile.size)}</div>
+  //                 </div>
+  //               </>
+  //             )}
+  //           </div>
+  //         </div>
+  //       )}
+  //     </VoucherUpload>
+  //   )
+  // }
 
   // Get featured categories and products for home view
   const featuredCategories = categories.slice(0, 4)
@@ -2550,7 +2669,8 @@ function ClientStore({
                 />
               </FormGroup>
               
-              {renderVoucherUpload()}
+              {/* VOUCHER: Temporalmente deshabilitado */}
+              {/* {renderVoucherUpload()} */}
               
               <button 
                 type="submit" 

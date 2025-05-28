@@ -78,6 +78,7 @@ export const API_ENDPOINTS = {
     BY_ID: (id) => `/payments/${id}`,
     BY_ORDER: (orderId) => `/payments/order/${orderId}`,
     VERIFY: (id) => `/payments/${id}/verify`,
+    CONFIRM: (id) => `/payments/${id}/confirm`,
     UPLOAD_VOUCHER: (id) => `/payments/${id}/voucher`,
   },
 

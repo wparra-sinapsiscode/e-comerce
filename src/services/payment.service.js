@@ -206,6 +206,41 @@ class PaymentService {
   }
 
   /**
+   * Confirm verified payment and start order preparation (Admin only)
+   * @param {string} id - Payment ID
+   * @param {string} notes - Confirmation notes
+   * @returns {Promise<Object>} API response
+   */
+  async confirmPayment(id, notes = '') {
+    const confirmationData = {
+      confirmation_notes: notes
+    }
+
+    try {
+      const response = await apiClient.patch(
+        API_ENDPOINTS.PAYMENTS.CONFIRM(id), 
+        confirmationData
+      )
+      
+      if (response.success) {
+        // Clear cache to refresh payment and order data
+        this._clearPaymentCache()
+        cacheHelpers.clear(`${this.cachePrefix}_${id}`)
+        // Also clear orders cache since order status will change
+        cacheHelpers.clear('orders')
+      }
+      
+      return response
+    } catch (error) {
+      console.error('Error confirming payment:', error)
+      return {
+        success: false,
+        error: { type: 'network', message: 'Error al confirmar pago' }
+      }
+    }
+  }
+
+  /**
    * Upload payment voucher
    * @param {string} paymentId - Payment ID
    * @param {File} file - Voucher file

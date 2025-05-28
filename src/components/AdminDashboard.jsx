@@ -986,6 +986,40 @@ const StatusActions = styled.div`
         transform: translateY(0px);
       }
     }
+
+    &.verify {
+      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+      color: white;
+      box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+      
+      &:hover {
+        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(59, 130, 246, 0.4);
+      }
+      
+      &:active {
+        transform: translateY(0px);
+      }
+    }
+
+    &.confirm {
+      background: linear-gradient(135deg, #059669 0%, #047857 100%);
+      color: white;
+      box-shadow: 0 4px 15px rgba(5, 150, 105, 0.3);
+      border: 2px solid #34d399;
+      
+      &:hover {
+        background: linear-gradient(135deg, #047857 0%, #065f46 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(5, 150, 105, 0.4);
+        border-color: #10b981;
+      }
+      
+      &:active {
+        transform: translateY(0px);
+      }
+    }
     
     &.reject {
       background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
@@ -1371,24 +1405,9 @@ function AdminDashboard({
   const safeOrders = orders || []
   const safePayments = payments || []
 
-  // Debug logs para categorías y productos
-  useEffect(() => {
-    console.log('🎯 ADMIN DASHBOARD - Props recibidas:', {
-      categories,
-      products,
-      categoriesType: typeof categories,
-      productsType: typeof products,
-      isArrayCategories: Array.isArray(categories),
-      isArrayProducts: Array.isArray(products),
-      categoriesLength: categories?.length,
-      productsLength: products?.length,
-      firstCategory: categories?.[0],
-      firstProduct: products?.[0]
-    })
-  }, [categories, products])
-
+  // ✅ ESTADOS - DECLARAR PRIMERO TODOS LOS useState
   const [activeTab, setActiveTab] = useState('dashboard')
-  const [orderFilter, setOrderFilter] = useState('active') // 'active', 'delivered', 'all'
+  const [orderFilter, setOrderFilter] = useState('active') // 'pending_payment', 'active', 'delivered', 'all'
   const [isLoading, setIsLoading] = useState(false)
   
   // Modal states
@@ -1398,6 +1417,7 @@ function AdminDashboard({
   const [editingProduct, setEditingProduct] = useState(null)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [selectedPayment, setSelectedPayment] = useState(null)
+  const [selectedOrder, setSelectedOrder] = useState(null)
   const [paymentModalMode, setPaymentModalMode] = useState('verify') // 'verify' or 'view'
   
   // Form states
@@ -1420,6 +1440,98 @@ function AdminDashboard({
   // Image upload states
   const [imageInputType, setImageInputType] = useState('file') // Solo archivo, no URL
   const [uploadedFile, setUploadedFile] = useState(null)
+
+  // ✅ VARIABLES CALCULADAS (necesarias para useEffect)
+  const awaitingPaymentOrders = safeOrders.filter(order => order.status === 'awaiting_payment').length
+  const deliveredOrders = safeOrders.filter(order => order.status === 'delivered').length
+  const activeOrders = safeOrders.filter(order => !['delivered', 'cancelled'].includes(order.status)).length
+  const pendingPayments = safePayments.filter(payment => payment.status === 'pending').length
+  const totalProducts = safeProducts.length
+  const totalIncome = safeOrders.filter(order => order.status === 'delivered').reduce((acc, curr) => acc + curr.total, 0)
+
+  // 🚨 LOGS DE DEPURACIÓN PARA PAGOS PENDIENTES
+  console.log('📊 ÓRDENES RECIBIDAS:', orders);
+  console.log('📊 ÓRDENES ESPERANDO PAGO:', orders?.filter(o => o.status === 'awaiting_payment'));
+  console.log('📊 PAGOS:', payments);
+  console.log('📊 PAGOS PENDIENTES:', payments?.filter(p => p.status === 'pending'));
+  console.log('📊 PAGOS PENDIENTES CON VOUCHER:', payments?.filter(p => p.status === 'pending' && p.voucher));
+  console.log('📊 PAGOS PENDIENTES SIN VOUCHER:', payments?.filter(p => p.status === 'pending' && !p.voucher));
+
+  // Debug logs para categorías y productos
+  useEffect(() => {
+    console.log('🎯 ADMIN DASHBOARD - Props recibidas:', {
+      categories,
+      products,
+      categoriesType: typeof categories,
+      productsType: typeof products,
+      isArrayCategories: Array.isArray(categories),
+      isArrayProducts: Array.isArray(products),
+      categoriesLength: categories?.length,
+      productsLength: products?.length,
+      firstCategory: categories?.[0],
+      firstProduct: products?.[0]
+    })
+  }, [categories, products])
+
+  // Auto-cambiar al filtro de pagos pendientes si hay pagos pendientes y se abre la tab de órdenes
+  useEffect(() => {
+    if (activeTab === 'orders' && pendingPayments > 0 && orderFilter === 'active') {
+      setOrderFilter('pending_payment')
+    }
+  }, [activeTab, pendingPayments, orderFilter])
+
+  // 🔥 CARGAR PAGOS PARA ÓRDENES ESPERANDO PAGO
+  useEffect(() => {
+    const loadPaymentsForAwaitingOrders = async () => {
+      if (!orders || orders.length === 0 || !paymentService) return
+      
+      console.log('🔄 CARGANDO PAGOS para órdenes esperando pago...')
+      const awaitingOrders = orders.filter(o => o.status === 'awaiting_payment')
+      console.log('📋 Órdenes esperando pago encontradas:', awaitingOrders.length)
+      
+      const newPayments = []
+      for (const order of awaitingOrders) {
+        try {
+          console.log(`🔍 Buscando pago para orden ${order.id}...`)
+          const res = await paymentService.getByOrderId(order.id)
+          if (res.success && res.data) {
+            console.log(`✅ Pago encontrado para orden ${order.id}:`, res.data)
+            newPayments.push(res.data)
+          } else {
+            console.log(`❌ No se encontró pago para orden ${order.id}`)
+            // Crear pago temporal para órdenes sin pago registrado
+            const tempPayment = {
+              id: `temp-${order.id}`,
+              order_id: order.id,
+              customer_name: order.customer_name,
+              customer_phone: order.customer_phone,
+              amount: order.total,
+              method: order.payment_method,
+              status: 'pending',
+              voucher: null,
+              date: order.date,
+              created_at: order.created_at
+            }
+            console.log(`🔧 Creando pago temporal para orden ${order.id}:`, tempPayment)
+            newPayments.push(tempPayment)
+          }
+        } catch (error) {
+          console.error(`❌ Error cargando pago para orden ${order.id}:`, error)
+        }
+      }
+      
+      if (newPayments.length > 0) {
+        console.log('💾 Agregando pagos al estado:', newPayments)
+        setPayments(prev => {
+          // Evitar duplicados
+          const existing = prev.filter(p => !newPayments.find(n => n.id === p.id))
+          return [...existing, ...newPayments]
+        })
+      }
+    }
+    
+    loadPaymentsForAwaitingOrders()
+  }, [orders, paymentService])
   
   // Presentation management states
   const [showPresentations, setShowPresentations] = useState(false)
@@ -1550,7 +1662,7 @@ function AdminDashboard({
           const isCompleted = index < currentIndex
           const isActive = index === currentIndex
           const canAdvance = index === currentIndex + 1 && canAdvanceToStep(order, index)
-          const canVerifyPayment = order.status === 'awaiting_payment' && step.key === 'awaiting_payment' && payment && payment.status === 'pending' && payment.voucher
+          const canVerifyPayment = order.status === 'awaiting_payment' && step.key === 'awaiting_payment' && payment && payment.status === 'pending'
           const IconComponent = step.icon
           
           return (
@@ -1562,7 +1674,7 @@ function AdminDashboard({
                 $color={step.color}
                 onClick={() => {
                   if (canVerifyPayment) {
-                    openPaymentModal(payment, 'verify')
+                    handleOpenPaymentModal(order)
                   } else if (canAdvance) {
                     progressOrder(order.id, step.key)
                   }
@@ -1582,10 +1694,10 @@ function AdminDashboard({
         })}
         
         <WorkflowControls>
-          {order.status === 'awaiting_payment' && payment && payment.status === 'pending' && payment.voucher && (
+          {order.status === 'awaiting_payment' && payment && payment.status === 'pending' && (
             <div style={{ 
-              background: '#fee2e2', 
-              color: '#dc2626', 
+              background: payment.voucher ? '#fee2e2' : '#fef3c7', 
+              color: payment.voucher ? '#dc2626' : '#92400e', 
               padding: '6px 12px', 
               borderRadius: '6px', 
               fontSize: '12px',
@@ -1595,7 +1707,7 @@ function AdminDashboard({
               gap: '6px'
             }}>
               <AlertCircle size={14} />
-              Click para verificar pago
+              {payment.voucher ? 'Click para verificar pago' : 'Click para verificar pago en efectivo'}
             </div>
           )}
           {order.status === 'cancelled' && (
@@ -2136,38 +2248,128 @@ function AdminDashboard({
 
   // Payment management functions
   const openPaymentModal = (payment, mode = 'verify') => {
+    console.log('🔔 MODAL ABIERTO - Payment:', payment, 'Mode:', mode)
     setSelectedPayment(payment)
     setPaymentModalMode(mode)
     setShowPaymentModal(true)
   }
 
+  // 🔥 NUEVA FUNCIÓN para abrir modal desde orden
+  const handleOpenPaymentModal = (order) => {
+    console.log('🔔 ABRIR MODAL DESDE ORDEN:', order)
+    
+    // Buscar pago existente o crear temporal
+    let payment = safePayments.find(p => p.order_id === order.id)
+    
+    if (!payment) {
+      console.log('🔧 Creando pago temporal para orden sin pago registrado')
+      payment = {
+        id: `temp-${order.id}`,
+        order_id: order.id,
+        customer_name: order.customer_name || order.customer,
+        customer_phone: order.customer_phone,
+        amount: order.total,
+        method: order.payment_method,
+        status: 'pending',
+        voucher: null,
+        date: order.date,
+        created_at: order.created_at
+      }
+      
+      // Agregar el pago temporal al estado
+      setPayments(prev => [...prev, payment])
+    }
+    
+    console.log('💳 Abriendo modal con pago:', payment)
+    console.log('📦 Orden seleccionada con productos:', order)
+    console.log('🛒 Items en la orden:', order.items?.length || 0)
+    setSelectedOrder(order)
+    setSelectedPayment(payment)
+    setPaymentModalMode('verify')
+    setShowPaymentModal(true)
+  }
+
   const closePaymentModal = () => {
     setSelectedPayment(null)
+    setSelectedOrder(null)
     setShowPaymentModal(false)
   }
 
-  const approvePayment = (paymentId) => {
-    // Update payment status
-    const updatedPayments = safePayments.map(payment => 
-      payment.id === paymentId 
-        ? { ...payment, status: 'verified' }
-        : payment
-    )
-    setPayments(updatedPayments)
-    
-    // Find and update corresponding order status
-    const payment = safePayments.find(p => p.id === paymentId)
-    if (payment) {
-      const updatedOrders = safeOrders.map(order => 
-        order.id === payment.order_id && order.status === 'awaiting_payment'
-          ? { ...order, status: 'preparing', payment_status: 'verified' }
-          : order
-      )
-      setOrders(updatedOrders)
+  const verifyPayment = async (paymentId) => {
+    try {
+      setIsLoading(true)
+      
+      // Call the API to verify payment (first step of double confirmation)
+      const response = await paymentService.verifyPayment(paymentId, 'VERIFIED', 'Pago verificado - pendiente de confirmación final')
+      
+      if (response.success) {
+        // Update local state to reflect the verification
+        const updatedPayments = safePayments.map(payment => 
+          payment.id === paymentId 
+            ? { ...payment, status: 'verified' }
+            : payment
+        )
+        setPayments(updatedPayments)
+        
+        // Find and update corresponding order payment status (but keep order status as awaiting_payment)
+        const payment = safePayments.find(p => p.id === paymentId)
+        if (payment) {
+          const updatedOrders = safeOrders.map(order => 
+            order.id === payment.order_id
+              ? { ...order, payment_status: 'verified' }
+              : order
+          )
+          setOrders(updatedOrders)
+        }
+        
+        showToast('Pago verificado - Listo para confirmar inicio de preparación', 'success')
+        // Modal stays open for final confirmation
+      } else {
+        showToast(response.error?.message || 'Error al verificar el pago', 'error')
+      }
+    } catch (error) {
+      console.error('Error verifying payment:', error)
+      showToast('Error al verificar el pago', 'error')
+    } finally {
+      setIsLoading(false)
     }
-    
-    showToast('Pago aprobado - Pedido listo para preparar', 'success')
-    closePaymentModal()
+  }
+
+  const confirmPaymentPreparation = async (paymentId) => {
+    try {
+      setIsLoading(true)
+      
+      // Call the API to confirm payment and start order preparation (second step of double confirmation)
+      const response = await paymentService.confirmPayment(paymentId, 'Pago confirmado - pedido iniciado en preparación')
+      
+      if (response.success) {
+        // Update local state to reflect the order status change
+        const payment = safePayments.find(p => p.id === paymentId)
+        if (payment) {
+          const updatedOrders = safeOrders.map(order => 
+            order.id === payment.order_id && order.status === 'awaiting_payment'
+              ? { ...order, status: 'preparing' }
+              : order
+          )
+          setOrders(updatedOrders)
+        }
+        
+        showToast('Pago confirmado - Pedido iniciado en preparación', 'success')
+        closePaymentModal()
+      } else {
+        showToast(response.error?.message || 'Error al confirmar el pago', 'error')
+      }
+    } catch (error) {
+      console.error('Error confirming payment:', error)
+      showToast('Error al confirmar el pago', 'error')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Legacy function for backwards compatibility (now just calls verifyPayment)
+  const approvePayment = (paymentId) => {
+    verifyPayment(paymentId)
   }
 
   const rejectPayment = (paymentId) => {
@@ -2346,6 +2548,11 @@ function AdminDashboard({
   // Order filtering
   const getFilteredOrders = () => {
     switch (orderFilter) {
+      case 'pending_payment':
+        return safeOrders.filter(order => {
+          const payment = safePayments.find(p => p.order_id === order.id)
+          return order.status === 'awaiting_payment' && payment && payment.status === 'pending'
+        })
       case 'active':
         return safeOrders.filter(order => !['delivered', 'cancelled'].includes(order.status))
       case 'delivered':
@@ -2369,16 +2576,10 @@ function AdminDashboard({
   const totalPages = Math.ceil(safeProducts.length / productsPerPage)
   const paginatedProducts = getPaginatedProducts()
 
-  // Statistics calculation
-  const awaitingPaymentOrders = safeOrders.filter(order => order.status === 'awaiting_payment').length
+  // Statistics calculation (moved up to avoid duplication)
   const preparingOrders = safeOrders.filter(order => order.status === 'preparing').length
   const readyOrders = safeOrders.filter(order => order.status === 'ready_for_shipping').length
   const shippedOrders = safeOrders.filter(order => order.status === 'shipped').length
-  const deliveredOrders = safeOrders.filter(order => order.status === 'delivered').length
-  const activeOrders = safeOrders.filter(order => !['delivered', 'cancelled'].includes(order.status)).length
-  const pendingPayments = safePayments.filter(payment => payment.status === 'pending' && payment.voucher).length
-  const totalProducts = safeProducts.length
-  const totalIncome = safeOrders.filter(order => order.status === 'delivered').reduce((acc, curr) => acc + curr.total, 0)
 
   return (
     <AdminSection>
@@ -2485,6 +2686,62 @@ function AdminDashboard({
                 </StatInfo>
               </StatCard>
             </StatCards>
+            
+            {/* 🚨 ALERTA DE PAGOS PENDIENTES */}
+            {pendingPayments > 0 && (
+              <div style={{ 
+                backgroundColor: '#fef3c7', 
+                border: '2px solid #f59e0b',
+                borderRadius: 'var(--radius)', 
+                padding: '20px', 
+                margin: '20px 0',
+                boxShadow: 'var(--shadow)' 
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                  <div style={{ 
+                    backgroundColor: '#f59e0b', 
+                    color: 'white', 
+                    borderRadius: '50%', 
+                    padding: '10px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    <AlertCircle size={24} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <h3 style={{ margin: '0 0 5px 0', color: '#92400e', fontSize: '18px', fontWeight: '600' }}>
+                      ⚠️ {pendingPayments} Pago{pendingPayments > 1 ? 's' : ''} Pendiente{pendingPayments > 1 ? 's' : ''} de Verificación
+                    </h3>
+                    <p style={{ margin: '0', color: '#78350f', fontSize: '14px' }}>
+                      Hay pagos que necesitan verificación. Revisa la sección de Órdenes para aprobarlos.
+                    </p>
+                  </div>
+                  <button 
+                    style={{
+                      backgroundColor: '#f59e0b',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '8px',
+                      padding: '12px 20px',
+                      cursor: 'pointer',
+                      fontWeight: '600',
+                      fontSize: '14px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      transition: 'all 0.2s'
+                    }}
+                    onClick={() => setActiveTab('orders')}
+                    onMouseOver={(e) => e.target.style.backgroundColor = '#d97706'}
+                    onMouseOut={(e) => e.target.style.backgroundColor = '#f59e0b'}
+                  >
+                    <CreditCard size={16} />
+                    Ver Pagos
+                  </button>
+                </div>
+              </div>
+            )}
             
             <div style={{ backgroundColor: 'white', borderRadius: 'var(--radius)', padding: '20px', boxShadow: 'var(--shadow)' }}>
               <h3 style={{ marginBottom: '15px', color: 'var(--gray-dark)' }}>Pedidos recientes</h3>
@@ -2627,6 +2884,37 @@ function AdminDashboard({
               <h2>Gestión de Pedidos</h2>
               <div style={{ display: 'flex', gap: '10px' }}>
                 <button 
+                  className={`btn ${orderFilter === 'pending_payment' ? 'btn-primary' : 'btn-secondary'}`}
+                  onClick={() => setOrderFilter('pending_payment')}
+                  style={{ 
+                    fontSize: '14px',
+                    backgroundColor: orderFilter === 'pending_payment' ? '#f59e0b' : undefined,
+                    borderColor: orderFilter === 'pending_payment' ? '#f59e0b' : undefined,
+                    position: 'relative'
+                  }}
+                >
+                  {pendingPayments > 0 && (
+                    <span style={{
+                      position: 'absolute',
+                      top: '-8px',
+                      right: '-8px',
+                      backgroundColor: '#ef4444',
+                      color: 'white',
+                      borderRadius: '50%',
+                      width: '20px',
+                      height: '20px',
+                      fontSize: '11px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontWeight: '600'
+                    }}>
+                      {pendingPayments}
+                    </span>
+                  )}
+                  🔔 Pagos Pendientes
+                </button>
+                <button 
                   className={`btn ${orderFilter === 'active' ? 'btn-primary' : 'btn-secondary'}`}
                   onClick={() => setOrderFilter('active')}
                   style={{ fontSize: '14px' }}
@@ -2649,6 +2937,27 @@ function AdminDashboard({
                 </button>
               </div>
             </div>
+            
+            {orderFilter === 'pending_payment' && (
+              <div style={{ 
+                backgroundColor: '#fef3c7', 
+                border: '2px solid #f59e0b',
+                borderRadius: 'var(--radius)', 
+                padding: '15px', 
+                marginBottom: '20px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px'
+              }}>
+                <AlertCircle size={20} style={{ color: '#f59e0b' }} />
+                <div>
+                  <strong style={{ color: '#92400e' }}>Mostrando órdenes con pagos pendientes de verificación</strong>
+                  <p style={{ margin: '5px 0 0 0', color: '#78350f', fontSize: '14px' }}>
+                    💡 <strong>Haz click en el badge "🔔 Esperando Pago"</strong> para abrir el modal de verificación.
+                  </p>
+                </div>
+              </div>
+            )}
             
             <div style={{ backgroundColor: 'white', borderRadius: 'var(--radius)', padding: '20px', boxShadow: 'var(--shadow)' }}>
               <Table>
@@ -2673,13 +2982,43 @@ function AdminDashboard({
                       <td>{formatDate(order.date)}</td>
                       <td>S/ {formatPrice(order.total)}</td>
                       <td>
-                        <Status style={{ 
-                          background: getStatusColor(order.status), 
-                          color: 'white',
-                          fontWeight: '500'
-                        }}>
-                          {getStatusText(order.status)}
-                        </Status>
+                        {order.status === 'awaiting_payment' ? (
+                          <button
+                            style={{ 
+                              background: getStatusColor(order.status), 
+                              color: 'white',
+                              fontWeight: '500',
+                              border: 'none',
+                              borderRadius: 'var(--radius)',
+                              padding: '4px 12px',
+                              fontSize: '12px',
+                              cursor: 'pointer',
+                              transition: 'all 0.2s ease',
+                              position: 'relative',
+                              overflow: 'hidden'
+                            }}
+                            onClick={() => handleOpenPaymentModal(order)}
+                            onMouseOver={(e) => {
+                              e.target.style.transform = 'scale(1.05)'
+                              e.target.style.boxShadow = '0 4px 8px rgba(0,0,0,0.2)'
+                            }}
+                            onMouseOut={(e) => {
+                              e.target.style.transform = 'scale(1)'
+                              e.target.style.boxShadow = 'none'
+                            }}
+                            title="Click para verificar pago"
+                          >
+                            🔔 {getStatusText(order.status)}
+                          </button>
+                        ) : (
+                          <Status style={{ 
+                            background: getStatusColor(order.status), 
+                            color: 'white',
+                            fontWeight: '500'
+                          }}>
+                            {getStatusText(order.status)}
+                          </Status>
+                        )}
                       </td>
                       <td><Status className={order.payment_status === 'verified' ? 'completed' : 'pending'}>
                         {order.payment_status === 'verified' ? 'Verificado' : 'Pendiente'}
@@ -3110,6 +3449,122 @@ function AdminDashboard({
                 </div>
               </CustomerInfo>
 
+              {/* 🛒 PRODUCTOS DEL PEDIDO */}
+              {selectedOrder && selectedOrder.items ? (
+                  <div style={{ 
+                    marginBottom: '25px',
+                    padding: '20px',
+                    backgroundColor: '#f8fafc',
+                    borderRadius: '12px',
+                    border: '1px solid #e2e8f0'
+                  }}>
+                    <h3 style={{ 
+                      color: '#374151',
+                      marginBottom: '15px',
+                      fontSize: '16px',
+                      fontWeight: '600',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}>
+                      <ShoppingBasket size={20} />
+                      Productos del Pedido ({selectedOrder.items.length})
+                    </h3>
+                    <div style={{ 
+                      display: 'grid',
+                      gap: '12px'
+                    }}>
+                      {selectedOrder.items.map((item, index) => (
+                        <div key={index} style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '15px',
+                          padding: '15px',
+                          backgroundColor: 'white',
+                          borderRadius: '8px',
+                          border: '1px solid #e5e7eb'
+                        }}>
+                          <div style={{
+                            width: '60px',
+                            height: '60px',
+                            borderRadius: '8px',
+                            overflow: 'hidden',
+                            backgroundColor: '#f3f4f6',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0
+                          }}>
+                            {item.product?.image ? (
+                              <img 
+                                src={item.product.image} 
+                                alt={item.product_name}
+                                style={{
+                                  width: '100%',
+                                  height: '100%',
+                                  objectFit: 'cover'
+                                }}
+                              />
+                            ) : (
+                              <Package size={24} style={{ color: '#9ca3af' }} />
+                            )}
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ 
+                              fontWeight: '600',
+                              color: '#374151',
+                              marginBottom: '4px'
+                            }}>
+                              {item.product_name}
+                            </div>
+                            <div style={{
+                              fontSize: '14px',
+                              color: '#6b7280',
+                              marginBottom: '4px'
+                            }}>
+                              {item.presentation_info ? 
+                                `${item.presentation_info.name} - ${item.presentation_info.unit}` :
+                                'Producto estándar'
+                              }
+                            </div>
+                            <div style={{
+                              fontSize: '13px',
+                              color: '#9ca3af'
+                            }}>
+                              Cantidad: {parseFloat(item.quantity)} • Precio: S/ {formatPrice(item.price)}
+                            </div>
+                          </div>
+                          <div style={{
+                            textAlign: 'right',
+                            flexShrink: 0
+                          }}>
+                            <div style={{
+                              fontSize: '16px',
+                              fontWeight: '600',
+                              color: '#059669'
+                            }}>
+                              S/ {formatPrice(item.total)}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{
+                      marginTop: '15px',
+                      padding: '15px',
+                      backgroundColor: '#dbeafe',
+                      borderRadius: '8px',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      fontWeight: '600'
+                    }}>
+                      <span style={{ color: '#1e40af' }}>Total del Pedido:</span>
+                      <span style={{ color: '#1e40af', fontSize: '18px' }}>S/ {formatPrice(selectedOrder.total)}</span>
+                    </div>
+                  </div>
+                ) : null}
+
               {/* Detalles del Pago */}
               <PaymentDetails>
                 <DetailCard>
@@ -3185,14 +3640,15 @@ function AdminDashboard({
 
               {/* Acciones del Pago */}
               <StatusActions>
+                {/* First step: Verify payment when status is pending */}
                 {paymentModalMode === 'verify' && selectedPayment.status === 'pending' && (
                   <>
                     <button 
-                      className="action-btn approve"
-                      onClick={() => approvePayment(selectedPayment.id)}
+                      className="action-btn verify"
+                      onClick={() => verifyPayment(selectedPayment.id)}
                     >
                       <Check size={20} />
-                      {selectedPayment.voucher ? 'Aprobar Pago' : 'Confirmar Pedido en Efectivo'}
+                      {selectedPayment.voucher ? 'Verificar Pago' : 'Verificar Pedido en Efectivo'}
                     </button>
                     <button 
                       className="action-btn reject"
@@ -3200,6 +3656,39 @@ function AdminDashboard({
                     >
                       <XCircle size={20} />
                       {selectedPayment.voucher ? 'Rechazar Pago' : 'Cancelar Pedido'}
+                    </button>
+                  </>
+                )}
+
+                {/* Second step: Confirm preparation when payment is verified but order is still awaiting payment */}
+                {selectedPayment.status === 'verified' && 
+                 (() => {
+                   const order = safeOrders.find(o => o.id === selectedPayment.order_id)
+                   return order && order.status === 'awaiting_payment'
+                 })() && (
+                  <>
+                    <div style={{ 
+                      textAlign: 'center', 
+                      padding: '16px',
+                      background: '#dbeafe',
+                      borderRadius: '12px',
+                      marginBottom: '16px',
+                      border: '2px solid #3b82f6'
+                    }}>
+                      <Check size={20} style={{ color: '#1d4ed8', marginBottom: '8px' }} />
+                      <div style={{ color: '#1e40af', fontWeight: '600', fontSize: '14px' }}>
+                        ✅ Pago Verificado
+                      </div>
+                      <div style={{ color: '#1e3a8a', fontSize: '13px', marginTop: '4px' }}>
+                        ¿Confirmar inicio de preparación del pedido?
+                      </div>
+                    </div>
+                    <button 
+                      className="action-btn confirm"
+                      onClick={() => confirmPaymentPreparation(selectedPayment.id)}
+                    >
+                      <ShoppingBasket size={20} />
+                      Confirmar y Iniciar Preparación
                     </button>
                   </>
                 )}
@@ -3223,7 +3712,11 @@ function AdminDashboard({
                   </div>
                 )}
                 
-                {selectedPayment.status === 'verified' && (
+                {selectedPayment.status === 'verified' && 
+                 (() => {
+                   const order = safeOrders.find(o => o.id === selectedPayment.order_id)
+                   return order && order.status === 'preparing'
+                 })() && (
                   <div style={{ 
                     textAlign: 'center', 
                     padding: '20px',
@@ -3233,9 +3726,9 @@ function AdminDashboard({
                     fontWeight: '600'
                   }}>
                     <Check size={24} style={{ marginBottom: '8px' }} />
-                    <div>Pago Verificado y Aprobado</div>
+                    <div>Pago Confirmado - Pedido en Preparación</div>
                     <small style={{ fontWeight: '400', opacity: '0.8' }}>
-                      El pedido ha pasado a estado "Preparando"
+                      El pedido ha sido confirmado y está siendo preparado
                     </small>
                   </div>
                 )}
