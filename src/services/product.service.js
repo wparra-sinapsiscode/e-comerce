@@ -285,6 +285,8 @@ class ProductService {
   async deleteProduct(id) {
     console.log('🗑️ SERVICE DELETE - ID:', id)
     console.log('🗑️ SERVICE DELETE - URL:', API_ENDPOINTS.PRODUCTS.BY_ID(id))
+    console.log('🗑️ SERVICE DELETE - API_BASE:', API_ENDPOINTS.API_BASE)
+    console.log('🗑️ SERVICE DELETE - FULL URL SHOULD BE:', `${API_ENDPOINTS.API_BASE}${API_ENDPOINTS.PRODUCTS.BY_ID(id)}`)
     
     try {
       const response = await apiClient.delete(API_ENDPOINTS.PRODUCTS.BY_ID(id))
