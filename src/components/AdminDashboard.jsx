@@ -2347,8 +2347,11 @@ function AdminDashboard({
       payment = {
         id: `temp-${order.id}`,
         order_id: order.id,
+        customer: order.customer_name || order.customer,
         customer_name: order.customer_name || order.customer,
+        customerName: order.customer_name || order.customer,
         customer_phone: order.customer_phone,
+        customerPhone: order.customer_phone,
         amount: order.total,
         method: order.payment_method,
         status: 'PENDING',
@@ -3571,6 +3574,7 @@ function AdminDashboard({
       {showPaymentModal && selectedPayment && selectedPayment.id && (
         <ModalOverlay onClick={closePaymentModal}>
           <PaymentModal onClick={(e) => e.stopPropagation()}>
+            {console.log('🔍 MODAL RENDERIZANDO - selectedPayment:', selectedPayment)}
             <PaymentModalHeader>
               <h2>
                 <CreditCard size={28} />
@@ -3591,11 +3595,11 @@ function AdminDashboard({
                 <div className="customer-details">
                   <div className="customer-field">
                     <div className="field-label">Cliente</div>
-                    <div className="field-value">{selectedPayment.customer || selectedPayment.customer_name}</div>
+                    <div className="field-value">{selectedPayment.customerName || selectedPayment.customer_name || selectedPayment.customer || 'No disponible'}</div>
                   </div>
                   <div className="customer-field">
                     <div className="field-label">Teléfono</div>
-                    <div className="field-value">{selectedPayment.customer_phone}</div>
+                    <div className="field-value">{selectedPayment.customerPhone || selectedPayment.customer_phone || 'No disponible'}</div>
                   </div>
                   <div className="customer-field">
                     <div className="field-label">Fecha del Pedido</div>
