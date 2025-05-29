@@ -514,6 +514,12 @@ export const orderStatuses = {
     description: 'Pedido creado, esperando verificación de pago',
     nextSteps: ['Verificar pago para continuar']
   },
+  payment_verified: {
+    label: 'Pago Verificado',
+    color: '#10b981',
+    description: 'Pago verificado exitosamente',
+    nextSteps: ['Iniciar preparación del pedido']
+  },
   preparing: {
     label: 'Preparando',
     color: '#3b82f6',

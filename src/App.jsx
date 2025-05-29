@@ -74,12 +74,29 @@ function App() {
         const ordersArray = ordersResponse.data?.data || []
         setOrders(ordersArray)
         console.log('📦 APP: Pedidos configurados:', ordersArray.length, 'pedidos para rol:', currentUser?.role)
+        
+        // Extraer pagos de las órdenes
+        const extractedPayments = []
+        ordersArray.forEach(order => {
+          if (order.payments && Array.isArray(order.payments)) {
+            order.payments.forEach(payment => {
+              extractedPayments.push({
+                ...payment,
+                order_id: order.id,
+                customer: order.customer_name || order.customer,
+                date: payment.created_at || order.created_at,
+                amount: payment.amount || order.total
+              })
+            })
+          }
+        })
+        console.log('📦 APP: Pagos extraídos:', extractedPayments)
+        setPayments(extractedPayments)
       } else {
         console.log('📦 APP: Error cargando pedidos:', ordersResponse.error)
         setOrders([])
+        setPayments([])
       }
-      
-      setPayments([]) // TODO: Implementar cuando esté listo
       
       console.log('📦 APP: Datos configurados exitosamente')
     } catch (error) {
