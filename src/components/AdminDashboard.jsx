@@ -1445,7 +1445,7 @@ function AdminDashboard({
   const awaitingPaymentOrders = safeOrders.filter(order => order.status === 'awaiting_payment').length
   const deliveredOrders = safeOrders.filter(order => order.status === 'delivered').length
   const activeOrders = safeOrders.filter(order => !['delivered', 'cancelled'].includes(order.status)).length
-  const pendingPayments = safePayments.filter(payment => payment.status === 'pending').length
+  const pendingPayments = safePayments.filter(payment => payment.status === 'PENDING').length
   const totalProducts = safeProducts.length
   const totalIncome = safeOrders.filter(order => order.status === 'delivered').reduce((acc, curr) => acc + curr.total, 0)
 
@@ -1453,9 +1453,9 @@ function AdminDashboard({
   console.log('📊 ÓRDENES RECIBIDAS:', orders);
   console.log('📊 ÓRDENES ESPERANDO PAGO:', orders?.filter(o => o.status === 'awaiting_payment'));
   console.log('📊 PAGOS:', payments);
-  console.log('📊 PAGOS PENDIENTES:', payments?.filter(p => p.status === 'pending'));
-  console.log('📊 PAGOS PENDIENTES CON VOUCHER:', payments?.filter(p => p.status === 'pending' && p.voucher));
-  console.log('📊 PAGOS PENDIENTES SIN VOUCHER:', payments?.filter(p => p.status === 'pending' && !p.voucher));
+  console.log('📊 PAGOS PENDIENTES:', payments?.filter(p => p.status === 'PENDING'));
+  console.log('📊 PAGOS PENDIENTES CON VOUCHER:', payments?.filter(p => p.status === 'PENDING' && p.voucher));
+  console.log('📊 PAGOS PENDIENTES SIN VOUCHER:', payments?.filter(p => p.status === 'PENDING' && !p.voucher));
 
   // Debug logs para categorías y productos
   useEffect(() => {
@@ -1493,7 +1493,7 @@ function AdminDashboard({
       for (const order of awaitingOrders) {
         try {
           console.log(`🔍 Buscando pago para orden ${order.id}...`)
-          const res = await paymentService.getByOrderId(order.id)
+          const res = await paymentService.getPaymentByOrder(order.id)
           if (res.success && res.data) {
             console.log(`✅ Pago encontrado para orden ${order.id}:`, res.data)
             newPayments.push(res.data)
@@ -2255,11 +2255,47 @@ function AdminDashboard({
   }
 
   // 🔥 NUEVA FUNCIÓN para abrir modal desde orden
-  const handleOpenPaymentModal = (order) => {
+  const handleOpenPaymentModal = async (order) => {
     console.log('🔔 ABRIR MODAL DESDE ORDEN:', order)
     
-    // Buscar pago existente o crear temporal
-    let payment = safePayments.find(p => p.order_id === order.id)
+    // Primero verificar si el pago viene incluido en la orden
+    let payment = null
+    
+    if (order.payments && order.payments.length > 0) {
+      console.log('💡 Usando pago incluido en la orden')
+      payment = order.payments[0] // Tomar el primer pago
+      console.log('📄 Pago extraído de la orden:', payment)
+    } else {
+      // Buscar en los pagos ya cargados
+      payment = safePayments.find(p => p.order_id === order.id)
+      
+      if (!payment) {
+        console.log('🔍 No se encontró pago en memoria, buscando en la base de datos...')
+        
+        // Intentar cargar desde la base de datos
+        try {
+          const res = await paymentService.getPaymentByOrder(order.id)
+          if (res.success && res.data) {
+            console.log('✅ Pago encontrado en la base de datos:', res)
+            console.log('📄 Datos del pago extraídos:', res.data)
+            payment = res.data  // Usar solo los datos, no toda la respuesta
+            
+            // Agregar el pago encontrado al estado
+            setPayments(prev => {
+              const existing = prev.find(p => p.id === payment.id)
+              if (!existing) {
+                return [...prev, payment]
+              }
+              return prev
+            })
+          } else {
+            console.log('❌ No se encontró pago en la base de datos para orden:', order.id)
+          }
+        } catch (error) {
+          console.error('❌ Error buscando pago en la base de datos:', error)
+        }
+      }
+    }
     
     if (!payment) {
       console.log('🔧 Creando pago temporal para orden sin pago registrado')
@@ -2281,12 +2317,24 @@ function AdminDashboard({
     }
     
     console.log('💳 Abriendo modal con pago:', payment)
+    console.log('🔧 Tipo de payment:', typeof payment)
+    console.log('🔧 ¿Es un objeto payment válido?', !!payment && !!payment.id)
+    console.log('🖼️ Voucher del pago:', payment.voucher ? 'SÍ' : 'NO')
+    console.log('🔍 Estado del pago:', payment.status)
+    console.log('💰 Método de pago:', payment.method)
     console.log('📦 Orden seleccionada con productos:', order)
     console.log('🛒 Items en la orden:', order.items?.length || 0)
-    setSelectedOrder(order)
-    setSelectedPayment(payment)
-    setPaymentModalMode('verify')
-    setShowPaymentModal(true)
+    
+    // Validar que payment es un objeto válido antes de pasarlo al modal
+    if (payment && payment.id) {
+      setSelectedOrder(order)
+      setSelectedPayment(payment)
+      setPaymentModalMode('verify')
+      setShowPaymentModal(true)
+      console.log('📱 Modal configurado exitosamente')
+    } else {
+      console.error('❌ Error: payment no es un objeto válido:', payment)
+    }
   }
 
   const closePaymentModal = () => {
@@ -3409,7 +3457,7 @@ function AdminDashboard({
       )}
 
       {/* Payment Verification Modal - Diseño Mejorado */}
-      {showPaymentModal && selectedPayment && (
+      {showPaymentModal && selectedPayment && selectedPayment.id && (
         <ModalOverlay onClick={closePaymentModal}>
           <PaymentModal onClick={(e) => e.stopPropagation()}>
             <PaymentModalHeader>
@@ -3585,12 +3633,12 @@ function AdminDashboard({
                 <DetailCard className="status-card">
                   <div className="detail-label">Estado del Pago</div>
                   <div className="detail-value">
-                    <StatusBadge className={selectedPayment.status}>
-                      {selectedPayment.status === 'verified' && <Check size={16} />}
-                      {selectedPayment.status === 'rejected' && <XCircle size={16} />}
-                      {selectedPayment.status === 'pending' && <Clock size={16} />}
-                      {selectedPayment.status === 'verified' ? 'Verificado' : 
-                       selectedPayment.status === 'rejected' ? 'Rechazado' : 'Pendiente'}
+                    <StatusBadge className={selectedPayment.status?.toLowerCase() || 'pending'}>
+                      {selectedPayment.status === 'VERIFIED' && <Check size={16} />}
+                      {selectedPayment.status === 'REJECTED' && <XCircle size={16} />}
+                      {selectedPayment.status === 'PENDING' && <Clock size={16} />}
+                      {selectedPayment.status === 'VERIFIED' ? 'Verificado' : 
+                       selectedPayment.status === 'REJECTED' ? 'Rechazado' : 'Pendiente'}
                     </StatusBadge>
                   </div>
                 </DetailCard>
@@ -3609,59 +3657,80 @@ function AdminDashboard({
                 </DetailCard>
               </PaymentDetails>
 
-              {/* Sección del Comprobante */}
-              <VoucherSection>
-                <h3 className="voucher-title">
-                  <ImageIcon size={20} />
-                  Comprobante de Pago
-                </h3>
-                <div className={`voucher-container ${selectedPayment.voucher ? 'has-voucher' : 'cash-payment'}`}>
-                  {selectedPayment.voucher ? (
-                    <img 
-                      src={selectedPayment.voucher} 
-                      alt="Comprobante de pago"
-                      className="voucher-image"
-                      onClick={() => window.open(selectedPayment.voucher, '_blank')}
-                    />
-                  ) : (
-                    <div className="no-voucher">
-                      <div className="cash-icon">
-                        <DollarSign size={32} />
-                      </div>
-                      <div className="cash-title">Pago en Efectivo</div>
-                      <div className="cash-subtitle">Contra Entrega</div>
-                      <div className="cash-note">
-                        El cliente pagará el monto total al momento de la entrega
-                      </div>
-                    </div>
-                  )}
+              {/* Nota informativa para pagos en efectivo */}
+              {selectedPayment.method === 'CASH' && (
+                <div style={{ 
+                  textAlign: 'center', 
+                  padding: '20px',
+                  background: '#fffbeb',
+                  borderRadius: '12px',
+                  marginBottom: '20px',
+                  border: '2px solid #fbbf24'
+                }}>
+                  <DollarSign size={32} style={{ color: '#92400e', marginBottom: '12px' }} />
+                  <div style={{ color: '#92400e', fontWeight: '600', fontSize: '16px', marginBottom: '8px' }}>
+                    💰 Pago Contra Entrega
+                  </div>
+                  <div style={{ color: '#78350f', fontSize: '14px' }}>
+                    El cliente pagará <strong>S/ {formatPrice(selectedPayment.amount)}</strong> al momento de la entrega
+                  </div>
                 </div>
-              </VoucherSection>
+              )}
+
+              {/* Sección del Comprobante - Solo para métodos que requieren comprobante */}
+              {['TRANSFER', 'YAPE', 'PLIN'].includes(selectedPayment.method) && (
+                <VoucherSection>
+                  <h3 className="voucher-title">
+                    <ImageIcon size={20} />
+                    Comprobante de Pago
+                  </h3>
+                  <div className="voucher-container has-voucher">
+                    {selectedPayment.voucher ? (
+                      <img 
+                        src={selectedPayment.voucher} 
+                        alt="Comprobante de pago"
+                        className="voucher-image"
+                        onClick={() => window.open(selectedPayment.voucher, '_blank')}
+                      />
+                    ) : (
+                      <div style={{ 
+                        textAlign: 'center', 
+                        padding: '40px',
+                        color: '#6b7280',
+                        fontSize: '14px'
+                      }}>
+                        <ImageIcon size={48} style={{ opacity: 0.3, marginBottom: '12px' }} />
+                        <div>No se encontró comprobante para este pago</div>
+                      </div>
+                    )}
+                  </div>
+                </VoucherSection>
+              )}
 
               {/* Acciones del Pago */}
               <StatusActions>
-                {/* First step: Verify payment when status is pending */}
-                {paymentModalMode === 'verify' && selectedPayment.status === 'pending' && (
+                {/* Botones simplificados para verificar/rechazar pago */}
+                {paymentModalMode === 'verify' && selectedPayment.status === 'PENDING' && (
                   <>
                     <button 
                       className="action-btn verify"
                       onClick={() => verifyPayment(selectedPayment.id)}
                     >
                       <Check size={20} />
-                      {selectedPayment.voucher ? 'Verificar Pago' : 'Verificar Pedido en Efectivo'}
+                      Aceptar
                     </button>
                     <button 
                       className="action-btn reject"
                       onClick={() => rejectPayment(selectedPayment.id)}
                     >
                       <XCircle size={20} />
-                      {selectedPayment.voucher ? 'Rechazar Pago' : 'Cancelar Pedido'}
+                      Cancelar
                     </button>
                   </>
                 )}
 
                 {/* Second step: Confirm preparation when payment is verified but order is still awaiting payment */}
-                {selectedPayment.status === 'verified' && 
+                {selectedPayment.status === 'VERIFIED' && 
                  (() => {
                    const order = safeOrders.find(o => o.id === selectedPayment.order_id)
                    return order && order.status === 'awaiting_payment'
@@ -3693,26 +3762,7 @@ function AdminDashboard({
                   </>
                 )}
                 
-                {paymentModalMode === 'verify' && selectedPayment.status === 'pending' && !selectedPayment.voucher && (
-                  <div style={{ 
-                    textAlign: 'center', 
-                    padding: '16px',
-                    background: '#fffbeb',
-                    borderRadius: '12px',
-                    marginBottom: '20px',
-                    border: '2px solid #fbbf24'
-                  }}>
-                    <AlertCircle size={20} style={{ color: '#92400e', marginBottom: '8px' }} />
-                    <div style={{ color: '#92400e', fontWeight: '600', fontSize: '14px' }}>
-                      ⚠️ Pedido con Pago en Efectivo
-                    </div>
-                    <div style={{ color: '#78350f', fontSize: '13px', marginTop: '4px' }}>
-                      El cliente debe pagar S/ {formatPrice(selectedPayment.amount)} al momento de la entrega
-                    </div>
-                  </div>
-                )}
-                
-                {selectedPayment.status === 'verified' && 
+                {selectedPayment.status === 'VERIFIED' && 
                  (() => {
                    const order = safeOrders.find(o => o.id === selectedPayment.order_id)
                    return order && order.status === 'preparing'
