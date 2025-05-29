@@ -2,6 +2,10 @@ import { useState, useEffect, useCallback, memo } from 'react'
 import styled from 'styled-components'
 import { Home, Tags, Package, ClipboardList, CreditCard, LogOut, Search, Plus, Edit, Trash2, Eye, X, Save, Upload, Image as ImageIcon, Apple, Beef, Fish, Carrot, Milk, Wheat, Wine, ShoppingBasket, Coffee, Egg, Droplets, Zap, Flower2, Soup, Utensils, Check, XCircle, Clock, AlertCircle, ZoomIn, ArrowRight, Truck, Package2, Link, Camera, User, DollarSign } from 'lucide-react'
 
+// Importar componente de visualización de estado en español
+import OrderStatusBadge from './OrderStatusBadge'
+import { getStateLabel, getStateColor } from '../utils/stateTranslation'
+
 const AdminSection = styled.section`
   display: flex;
   height: 100vh;
@@ -1901,9 +1905,7 @@ function AdminDashboard({
             </div>
           )}
           {(order.status === 'CANCELLED' || order.status === 'cancelled') && (
-            <Status style={{ background: '#ef4444', color: 'white', fontSize: '12px' }}>
-              Cancelado
-            </Status>
+            <OrderStatusBadge status={order.status} />
           )}
         </WorkflowControls>
       </WorkflowContainer>
@@ -2890,9 +2892,7 @@ function AdminDashboard({
           {statusInfo?.nextSteps.length > 0 ? (
             <span>{statusInfo.nextSteps[0]}</span>
           ) : (
-            <Status style={{ background: statusInfo?.color || '#6b7280', color: 'white', fontSize: '12px' }}>
-              {statusInfo?.label || order.status}
-            </Status>
+            <OrderStatusBadge status={order.status} />
           )}
         </div>
       )
