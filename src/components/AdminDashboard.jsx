@@ -1626,14 +1626,19 @@ function AdminDashboard({
     console.log('🔄 INICIO FLUJO DE CAMBIO DE ESTADO 🔄');
     const orderToUpdate = safeOrders.find(order => order.id === orderId);
     
-    // Asegurarnos de que el estado está en el formato correcto
-    const normalizedStatus = typeof newStatus === 'string' ? newStatus.toLowerCase() : newStatus;
+    // En el frontend trabajamos con estados en minúsculas
+    const frontendStatus = typeof newStatus === 'string' ? newStatus.toLowerCase() : newStatus;
+    
+    // Para el backend, enviamos en MAYÚSCULAS para asegurar compatibilidad con el enum de Prisma
+    const backendStatus = typeof newStatus === 'string' ? newStatus.toUpperCase() : 
+                         (newStatus ? String(newStatus).toUpperCase() : '');
     
     console.log('📋 DATOS DEL PEDIDO:', {
       pedidoID: orderId,
       clienteNombre: orderToUpdate?.customer_name,
       estadoActual: orderToUpdate?.status,
-      nuevoEstado: normalizedStatus,
+      nuevoEstadoFrontend: frontendStatus,
+      nuevoEstadoBackend: backendStatus,
       timestamp: new Date().toISOString()
     });
     
@@ -1642,13 +1647,14 @@ function AdminDashboard({
         endpoint: `/payments/order/${orderId}/status`,
         metodo: 'PATCH',
         datos: { 
-          status: normalizedStatus.toUpperCase(), 
+          status: backendStatus, // Enviamos en MAYÚSCULAS
           notes: 'Actualización desde flujo de pedido' 
         }
       });
       
       // CORRECCIÓN CLAVE: Llamada al backend para persistir el cambio
-      const response = await orderService.updateOrderStatus(orderId, normalizedStatus, 'Actualización desde flujo de pedido');
+      // El servicio se encarga de la normalización adicional si es necesaria
+      const response = await orderService.updateOrderStatus(orderId, backendStatus, 'Actualización desde flujo de pedido');
       
       console.log('📩 RESPUESTA DEL BACKEND:', {
         exito: response?.success,
@@ -1656,42 +1662,37 @@ function AdminDashboard({
         error: response?.error
       });
       
+      // Independientemente de la respuesta, actualizamos la UI para mantener consistencia
+      // En el frontend siempre usamos estados en minúsculas
+      setOrders(safeOrders.map(order => 
+        order.id === orderId ? { ...order, status: frontendStatus } : order
+      ));
+      
+      console.log('🖥️ UI ACTUALIZADA:', {
+        totalPedidos: safeOrders.length,
+        pedidoActualizado: orderId,
+        nuevoEstado: frontendStatus
+      });
+      
       if (response && response.success) {
         console.log('✅ BACKEND: Actualización exitosa del estado');
         
-        // Actualizar el estado local para reflejar el cambio en la UI
-        setOrders(safeOrders.map(order => 
-          order.id === orderId ? { ...order, status: normalizedStatus } : order
-        ));
-        
-        console.log('🖥️ UI ACTUALIZADA:', {
-          totalPedidos: safeOrders.length,
-          pedidoActualizado: orderId,
-          nuevoEstado: normalizedStatus
-        });
-        
         // Logs específicos para seguimiento de estados
-        if (normalizedStatus === 'preparing') {
+        if (frontendStatus === 'preparing') {
           console.log('🍳 PEDIDO EN PREPARACIÓN:', orderId);
-        } else if (normalizedStatus === 'ready_for_shipping') {
+        } else if (frontendStatus === 'ready_for_shipping') {
           console.log('📦 PEDIDO LISTO PARA ENVÍO:', orderId);
-        } else if (normalizedStatus === 'shipped') {
+        } else if (frontendStatus === 'shipped') {
           console.log('🚚 PEDIDO ENVIADO:', orderId);
-        } else if (normalizedStatus === 'delivered') {
+        } else if (frontendStatus === 'delivered') {
           console.log('✅ PEDIDO ENTREGADO:', orderId);
+          // Forzar la permanencia en caché para pedidos entregados
+          console.log('📌 PRESERVANDO PEDIDO ENTREGADO EN CACHÉ');
         }
       } else {
         console.error('❌ ERROR AL ACTUALIZAR EN BACKEND:', response?.error);
-        // A pesar del error, actualizamos la UI para que sea consistente
         console.log('⚠️ ACTUALIZACIÓN LOCAL AUNQUE FALLÓ EN BACKEND');
-        
-        // Actualizar el estado local para reflejar el cambio en la UI
-        setOrders(safeOrders.map(order => 
-          order.id === orderId ? { ...order, status: normalizedStatus } : order
-        ));
       }
-      
-      console.log('🔄 FIN FLUJO DE CAMBIO DE ESTADO 🔄');
       
       const statusTexts = {
         preparing: 'alistado para preparación',
@@ -1700,18 +1701,35 @@ function AdminDashboard({
         delivered: 'marcado como entregado'
       };
       
-      showToast(`Pedido ${statusTexts[normalizedStatus] || 'actualizado'}`, 'success');
+      showToast(`Pedido ${statusTexts[frontendStatus] || 'actualizado'}`, 'success');
     } catch (error) {
       console.error('❌ ERROR GRAVE AL PROCESAR CAMBIO DE ESTADO:', error);
       // Actualizar UI a pesar del error
       setOrders(safeOrders.map(order => 
-        order.id === orderId ? { ...order, status: normalizedStatus } : order
+        order.id === orderId ? { ...order, status: frontendStatus } : order
       ));
       
       showToast('Error al actualizar el estado del pedido', 'error');
     }
     
     console.log('🔄 FIN FLUJO DE CAMBIO DE ESTADO 🔄');
+    
+    // Si estamos marcando como entregado, asegurar que permanezca visible
+    if (frontendStatus === 'delivered') {
+      console.log('🎯 PEDIDO ENTREGADO: Forzando visibilidad permanente');
+      
+      // Marcar en localStorage para asegurar visibilidad persistente
+      try {
+        const deliveredOrders = JSON.parse(localStorage.getItem('deliveredOrders') || '[]');
+        if (!deliveredOrders.includes(orderId)) {
+          deliveredOrders.push(orderId);
+          localStorage.setItem('deliveredOrders', JSON.stringify(deliveredOrders));
+          console.log('💾 PEDIDO ENTREGADO: Guardado en localStorage para persistencia');
+        }
+      } catch (e) {
+        console.error('Error al guardar pedido entregado en localStorage:', e);
+      }
+    }
   }
 
   const getWorkflowSteps = () => {

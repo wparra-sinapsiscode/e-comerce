@@ -48,6 +48,50 @@ class OrderService {
       const response = await apiClient.get(API_ENDPOINTS.ORDERS.BASE, params)
       
       if (response.success) {
+        // Verificar si hay pedidos DELIVERED que deberíamos preservar
+        try {
+          const deliveredOrderIds = JSON.parse(localStorage.getItem('deliveredOrders') || '[]');
+          
+          if (deliveredOrderIds.length > 0) {
+            console.log('🔍 order.service: Verificando si hay pedidos DELIVERED que preservar:', deliveredOrderIds);
+            
+            // Obtener los pedidos actuales
+            const orders = response.data.orders || [];
+            
+            // Verificar si algún pedido DELIVERED no está en los resultados
+            const missingDeliveredIds = deliveredOrderIds.filter(
+              id => !orders.some(order => order.id === id)
+            );
+            
+            if (missingDeliveredIds.length > 0) {
+              console.log('🔄 order.service: Recuperando pedidos DELIVERED que no están en resultados:', missingDeliveredIds);
+              
+              // Buscar estos pedidos en caché
+              const deliveredOrders = [];
+              for (const id of missingDeliveredIds) {
+                const cachedOrder = cacheHelpers.get(`${this.cachePrefix}_delivered_${id}`);
+                if (cachedOrder) {
+                  deliveredOrders.push(cachedOrder);
+                }
+              }
+              
+              if (deliveredOrders.length > 0) {
+                console.log('✅ order.service: Recuperados pedidos DELIVERED desde caché:', deliveredOrders.length);
+                
+                // Combinar con los resultados de la API
+                response.data.orders = [...orders, ...deliveredOrders];
+                
+                // Actualizar el total
+                if (response.data.total) {
+                  response.data.total += deliveredOrders.length;
+                }
+              }
+            }
+          }
+        } catch (cacheError) {
+          console.error('❌ order.service: Error al procesar caché de pedidos DELIVERED:', cacheError);
+        }
+        
         cacheHelpers.set(cacheKey, response.data, this.cacheTTL)
       }
       
@@ -266,8 +310,11 @@ class OrderService {
       nuevoEstado: newStatus
     });
 
-    // Asegurarse de que el estado está en mayúsculas para el backend
-    const normalizedStatus = typeof newStatus === 'string' ? newStatus.toUpperCase() : newStatus;
+    // Asegurarse de que el estado está en el formato correcto para el backend (MAYÚSCULAS)
+    // Convertimos explícitamente a MAYÚSCULAS para asegurar compatibilidad con el enum del backend
+    const normalizedStatus = typeof newStatus === 'string' 
+      ? newStatus.toUpperCase() 
+      : (newStatus ? String(newStatus).toUpperCase() : '');
     
     console.log('🔄 ORDER SERVICE: Normalizando estado:', {
       estadoOriginal: newStatus,
@@ -322,14 +369,27 @@ class OrderService {
       if (response.success) {
         console.log('🗑️ ORDER SERVICE: Limpiando caché para actualizar datos');
         
-        if (newStatus === 'DELIVERED') {
+        if (normalizedStatus === 'DELIVERED') {
           console.log('⚠️ ORDER SERVICE: Estado DELIVERED - preservando en caché');
+          
+          // Agregar a localStorage para persistencia
+          try {
+            const deliveredOrders = JSON.parse(localStorage.getItem('deliveredOrders') || '[]');
+            if (!deliveredOrders.includes(id)) {
+              deliveredOrders.push(id);
+              localStorage.setItem('deliveredOrders', JSON.stringify(deliveredOrders));
+              console.log('💾 ORDER SERVICE: Pedido DELIVERED guardado en localStorage');
+            }
+          } catch (e) {
+            console.error('Error al guardar pedido DELIVERED en localStorage:', e);
+          }
+          
           // Preservar pedido en caché especial para DELIVERED
           const orderCache = cacheHelpers.get(`${this.cachePrefix}_${id}`);
           if (orderCache) {
             const deliveredOrder = {
               ...orderCache, 
-              status: 'delivered',
+              status: 'delivered', // Frontend usa minúsculas
               _delivered_at: new Date().toISOString(),
               _preserved: true
             };
@@ -337,9 +397,10 @@ class OrderService {
             // Limpiar caché normal
             this._clearOrderCache();
             
-            // Pero volver a guardar este pedido específico con TTL extendido
-            cacheHelpers.set(`${this.cachePrefix}_${id}`, deliveredOrder, this.cacheTTL * 3);
-            cacheHelpers.set(`${this.cachePrefix}_delivered_${id}`, deliveredOrder, this.cacheTTL * 3);
+            // Pero volver a guardar este pedido específico con TTL extendido (1 hora)
+            const DELIVERED_TTL = 60 * 60 * 1000; // 1 hora
+            cacheHelpers.set(`${this.cachePrefix}_${id}`, deliveredOrder, DELIVERED_TTL);
+            cacheHelpers.set(`${this.cachePrefix}_delivered_${id}`, deliveredOrder, DELIVERED_TTL);
             
             console.log('✅ ORDER SERVICE: Pedido DELIVERED preservado en caché especial');
           } else {
@@ -347,17 +408,26 @@ class OrderService {
             console.log('🔄 ORDER SERVICE: Recargando pedido DELIVERED del API para caché');
             
             try {
-              const refreshResponse = await this.getOrderById(id);
+              // Hacer llamada directa sin usar caché para asegurar datos frescos
+              const refreshResponse = await apiClient.get(API_ENDPOINTS.ORDERS.BY_ID(id), {}, {
+                headers: { 
+                  'Authorization': `Bearer ${localStorage.getItem('ecommerce_auth_token')}`,
+                  'Cache-Control': 'no-cache, no-store, must-revalidate' 
+                }
+              });
+              
               if (refreshResponse.success) {
                 const deliveredOrder = {
                   ...refreshResponse.data,
+                  status: 'delivered', // Frontend usa minúsculas
                   _delivered_at: new Date().toISOString(),
                   _preserved: true
                 };
                 
-                // Guardar en caché especial con TTL extendido
-                cacheHelpers.set(`${this.cachePrefix}_${id}`, deliveredOrder, this.cacheTTL * 3);
-                cacheHelpers.set(`${this.cachePrefix}_delivered_${id}`, deliveredOrder, this.cacheTTL * 3);
+                // Guardar en caché especial con TTL extendido (1 hora)
+                const DELIVERED_TTL = 60 * 60 * 1000; // 1 hora
+                cacheHelpers.set(`${this.cachePrefix}_${id}`, deliveredOrder, DELIVERED_TTL);
+                cacheHelpers.set(`${this.cachePrefix}_delivered_${id}`, deliveredOrder, DELIVERED_TTL);
                 
                 console.log('✅ ORDER SERVICE: Pedido DELIVERED recargado y guardado en caché');
               }
@@ -374,15 +444,30 @@ class OrderService {
         // Verificar que la actualización se haya guardado correctamente
         try {
           console.log('🔍 ORDER SERVICE: Verificando actualización en BD...');
-          const verifyResponse = await this.getOrderById(id);
+          // Hacer una llamada directa sin usar caché para asegurar datos frescos
+          const verifyResponse = await apiClient.get(API_ENDPOINTS.ORDERS.BY_ID(id), {}, {
+            headers: { 
+              'Authorization': `Bearer ${localStorage.getItem('ecommerce_auth_token')}`,
+              'Cache-Control': 'no-cache, no-store, must-revalidate' 
+            }
+          });
           console.log('🔎 ORDER SERVICE: Estado actual en BD:', verifyResponse?.data?.status);
           
-          if (verifyResponse?.data?.status !== newStatus.toLowerCase() && 
-              verifyResponse?.data?.status !== newStatus) {
+          const dbStatus = verifyResponse?.data?.status || '';
+          
+          // Normalizar ambos estados para comparación
+          const normalizedDbStatus = String(dbStatus).toUpperCase();
+          const normalizedRequestStatus = String(normalizedStatus).toUpperCase();
+          
+          if (normalizedDbStatus !== normalizedRequestStatus) {
             console.warn('⚠️ ORDER SERVICE: El estado en BD no coincide con el solicitado!', {
               solicitado: newStatus,
-              actual: verifyResponse?.data?.status
+              normalizado: normalizedRequestStatus,
+              actualBD: dbStatus,
+              normalizadoBD: normalizedDbStatus
             });
+          } else {
+            console.log('✅ ORDER SERVICE: Verificación exitosa - Estado guardado correctamente en BD');
           }
         } catch (verifyError) {
           console.error('⚠️ ORDER SERVICE: Error al verificar actualización:', verifyError);
