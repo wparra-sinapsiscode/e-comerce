@@ -1156,8 +1156,9 @@ const StepIcon = styled.div`
   align-items: center;
   justify-content: center;
   background: ${props => 
-    props.$isActive ? props.$color :
-    props.$isCompleted ? '#10b981' : '#e2e8f0'
+    props.$isCompleted ? '#10b981' :
+    props.$canAdvance ? '#3b82f6' :
+    props.$isActive ? props.$color : '#e2e8f0'
   };
   color: white;
   font-size: 14px;
@@ -1165,14 +1166,17 @@ const StepIcon = styled.div`
   transition: all 0.3s ease;
   cursor: ${props => props.$canAdvance ? 'pointer' : 'default'};
   border: 2px solid ${props => 
-    props.$isActive ? props.$color :
-    props.$isCompleted ? '#10b981' : '#e2e8f0'
+    props.$isCompleted ? '#10b981' :
+    props.$canAdvance ? '#3b82f6' :
+    props.$isActive ? props.$color : '#e2e8f0'
   };
   
   &:hover {
     ${props => props.$canAdvance && `
       transform: translateY(-2px);
-      box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+      box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
+      background: #2563eb;
+      border-color: #2563eb;
     `}
   }
 `
@@ -1430,6 +1434,10 @@ function AdminDashboard({
   const [selectedOrder, setSelectedOrder] = useState(null)
   const [paymentModalMode, setPaymentModalMode] = useState('verify') // 'verify' or 'view'
   
+  // Status confirmation modal states
+  const [showStatusConfirmModal, setShowStatusConfirmModal] = useState(false)
+  const [statusConfirmData, setStatusConfirmData] = useState(null)
+  
   // Form states
   const [categoryForm, setCategoryForm] = useState({
     name: '',
@@ -1450,6 +1458,7 @@ function AdminDashboard({
   // Image upload states
   const [imageInputType, setImageInputType] = useState('file') // Solo archivo, no URL
   const [uploadedFile, setUploadedFile] = useState(null)
+  
 
   // ✅ VARIABLES CALCULADAS (necesarias para useEffect)
   // Solo contar órdenes esperando pago que NO tengan el pago verificado
@@ -1587,6 +1596,13 @@ function AdminDashboard({
   const getNextActions = (order) => {
     const currentStatus = order.status.toLowerCase()
     const payment = safePayments.find(p => p.order_id === order.id)
+    const isPaymentVerified = order.payment_status === 'VERIFIED' || payment?.status === 'VERIFIED'
+    
+    // Si el pago está verificado pero el estado sigue siendo awaiting_payment,
+    // mostrar la acción para iniciar preparación
+    if (currentStatus === 'awaiting_payment' && isPaymentVerified) {
+      return [{ action: 'start_preparation', label: 'Iniciar Preparación', icon: Package, color: '#3b82f6' }]
+    }
     
     switch (currentStatus) {
       case 'awaiting_payment':
@@ -1670,12 +1686,18 @@ function AdminDashboard({
   const canAdvanceToStep = (order, targetStepIndex) => {
     const currentIndex = getStatusIndex(order.status)
     const payment = safePayments.find(p => p.order_id === order.id)
+    const isPaymentVerified = order.payment_status === 'VERIFIED' || payment?.status === 'VERIFIED'
+    
+    // Si el pago está verificado y estamos en awaiting_payment, permitir avanzar a preparing (índice 2)
+    if (order.status.toLowerCase() === 'awaiting_payment' && isPaymentVerified && targetStepIndex === 2) {
+      return true
+    }
     
     // Can only advance one step at a time
     if (targetStepIndex !== currentIndex + 1) return false
     
     // Special rule: can't advance from awaiting_payment without verified payment
-    if (order.status.toLowerCase() === 'awaiting_payment' && (!payment || payment.status !== 'VERIFIED')) {
+    if (order.status.toLowerCase() === 'awaiting_payment' && !isPaymentVerified) {
       return false
     }
     
@@ -1693,12 +1715,28 @@ function AdminDashboard({
       currentIndex = 1 // Index of payment_verified step
     }
     
+    // Determinar el siguiente paso disponible
+    const getNextAvailableStep = () => {
+      if (order.status.toLowerCase() === 'awaiting_payment' && isPaymentVerified) {
+        return 'preparing' // Siguiente paso después de pago verificado
+      }
+      const statusMap = {
+        'preparing': 'ready_for_shipping',
+        'ready_for_shipping': 'shipped',
+        'shipped': 'delivered'
+      }
+      return statusMap[order.status.toLowerCase()] || null
+    }
+    
+    const nextAvailableStep = getNextAvailableStep()
+    
     return (
       <WorkflowContainer>
         {steps.map((step, index) => {
-          const isCompleted = index < currentIndex
+          const isCompleted = index < currentIndex || (step.key === 'payment_verified' && isPaymentVerified)
           const isActive = index === currentIndex
-          const canAdvance = index === currentIndex + 1 && canAdvanceToStep(order, index)
+          const isNextAvailable = step.key === nextAvailableStep
+          const canAdvance = isNextAvailable && !isCompleted
           const canVerifyPayment = order.status.toLowerCase() === 'awaiting_payment' && step.key === 'awaiting_payment' && payment && payment.status === 'PENDING' && !isPaymentVerified
           const IconComponent = step.icon
           
@@ -1717,7 +1755,17 @@ function AdminDashboard({
                   if (canVerifyPayment) {
                     handleOpenPaymentModal(order)
                   } else if (canAdvance) {
-                    progressOrder(order.id, step.key)
+                    // Determinar la acción correcta basada en el paso
+                    const actionMap = {
+                      'preparing': 'start_preparation',
+                      'ready_for_shipping': 'mark_ready',
+                      'shipped': 'mark_shipped',
+                      'delivered': 'mark_delivered'
+                    }
+                    const action = actionMap[step.key]
+                    if (action) {
+                      handleOrderAction(order.id, action)
+                    }
                   }
                 }}
                 style={{
@@ -2646,6 +2694,7 @@ function AdminDashboard({
 
   const handleOrderAction = (orderId, action) => {
     const payment = safePayments.find(p => p.order_id === orderId)
+    const order = safeOrders.find(o => o.id === orderId)
     
     switch (action) {
       case 'verify_payment':
@@ -2654,48 +2703,69 @@ function AdminDashboard({
         }
         break
       case 'start_preparation':
-        progressOrder(orderId, 'preparing')
+        setStatusConfirmData({
+          orderId,
+          order,
+          newStatus: 'preparing',
+          actionText: 'Iniciar Preparación',
+          confirmText: '¿Está seguro de que desea iniciar la preparación de este pedido?',
+          buttonText: 'Sí, iniciar preparación',
+          icon: Package,
+          iconColor: '#3b82f6'
+        })
+        setShowStatusConfirmModal(true)
         break
       case 'mark_ready':
-        progressOrder(orderId, 'ready_for_shipping')
+        setStatusConfirmData({
+          orderId,
+          order,
+          newStatus: 'ready_for_shipping',
+          actionText: 'Marcar como Listo',
+          confirmText: '¿Está seguro de que el pedido está listo para envío?',
+          buttonText: 'Sí, marcar como listo',
+          icon: Package2,
+          iconColor: '#8b5cf6'
+        })
+        setShowStatusConfirmModal(true)
         break
       case 'mark_shipped':
-        progressOrder(orderId, 'shipped')
+        setStatusConfirmData({
+          orderId,
+          order,
+          newStatus: 'shipped',
+          actionText: 'Marcar como Enviado',
+          confirmText: '¿Está seguro de que el pedido ha sido enviado?',
+          buttonText: 'Sí, marcar como enviado',
+          icon: Truck,
+          iconColor: '#06b6d4'
+        })
+        setShowStatusConfirmModal(true)
         break
       case 'mark_delivered':
-        progressOrder(orderId, 'delivered')
+        setStatusConfirmData({
+          orderId,
+          order,
+          newStatus: 'delivered',
+          actionText: 'Marcar como Entregado',
+          confirmText: '¿Está seguro de que el pedido ha sido entregado?',
+          buttonText: 'Sí, marcar como entregado',
+          icon: Check,
+          iconColor: '#10b981'
+        })
+        setShowStatusConfirmModal(true)
         break
     }
   }
 
-  const getOrderActions = (order) => {
-    const payment = safePayments.find(p => p.order_id === order.id)
-    
-    // Special handling for verified payment - show green non-clickable button
-    if (order.payment_status === 'VERIFIED' || payment?.status === 'VERIFIED') {
-      return (
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-          <div
-            style={{ 
-              backgroundColor: '#10b981', 
-              color: 'white',
-              padding: '6px 12px',
-              fontSize: '13px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              borderRadius: '6px',
-              cursor: 'default',
-              opacity: 0.9
-            }}
-          >
-            <Check size={14} />
-            Pago Verificado
-          </div>
-        </div>
-      )
+  const confirmStatusChange = () => {
+    if (statusConfirmData) {
+      progressOrder(statusConfirmData.orderId, statusConfirmData.newStatus)
+      setShowStatusConfirmModal(false)
+      setStatusConfirmData(null)
     }
-    
+  }
+
+  const getOrderActions = (order) => {
     const actions = getNextActions(order)
     
     if (actions.length === 0) {
@@ -2951,7 +3021,7 @@ function AdminDashboard({
                   {safeOrders.slice(0, 5).map(order => (
                     <tr key={order.id}>
                       <td>{order.id}</td>
-                      <td>{order.customer}</td>
+                      <td>{order.customer_name || order.customer || 'Sin nombre'}</td>
                       <td>{formatDate(order.date)}</td>
                       <td>S/ {formatPrice(order.total)}</td>
                       <td><Status className={order.payment_status === 'VERIFIED' ? 'payment_verified' : order.status}>{getStatusText(order.status, order)}</Status></td>
@@ -3117,7 +3187,7 @@ function AdminDashboard({
                   {filteredOrders.map(order => (
                     <tr key={order.id}>
                       <td>{order.id}</td>
-                      <td>{order.customer}</td>
+                      <td>{order.customer_name || order.customer || 'Sin nombre'}</td>
                       <td>{order.customer_phone}</td>
                       <td>{formatDate(order.date)}</td>
                       <td>S/ {formatPrice(order.total)}</td>
@@ -3919,6 +3989,100 @@ function AdminDashboard({
               )}
             </PaymentModalBody>
           </PaymentModal>
+        </ModalOverlay>
+      )}
+
+      {/* Order Status Confirmation Modal */}
+      {showStatusConfirmModal && statusConfirmData && (
+        <ModalOverlay onClick={() => setShowStatusConfirmModal(false)}>
+          <ModalContent onClick={(e) => e.stopPropagation()}>
+            <h2 style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
+              {statusConfirmData.icon && (() => {
+                const IconComponent = statusConfirmData.icon
+                return <IconComponent size={24} style={{ color: statusConfirmData.iconColor || '#3b82f6' }} />
+              })()}
+              {statusConfirmData.actionText}
+            </h2>
+            
+            <div style={{ marginBottom: '20px' }}>
+              <p style={{ fontSize: '16px', color: '#374151', marginBottom: '15px' }}>
+                {statusConfirmData.confirmText}
+              </p>
+              
+              {statusConfirmData.order && (
+                <div style={{
+                  background: '#f3f4f6',
+                  padding: '15px',
+                  borderRadius: '8px',
+                  marginBottom: '20px'
+                }}>
+                  <div style={{ marginBottom: '8px' }}>
+                    <strong>Pedido #:</strong> {statusConfirmData.order.id}
+                  </div>
+                  <div style={{ marginBottom: '8px' }}>
+                    <strong>Cliente:</strong> {statusConfirmData.order.customer_name}
+                  </div>
+                  <div>
+                    <strong>Total:</strong> S/. {statusConfirmData.order.total.toFixed(2)}
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => {
+                  setShowStatusConfirmModal(false)
+                  setStatusConfirmData(null)
+                }}
+                style={{
+                  padding: '10px 20px',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '6px',
+                  background: 'white',
+                  color: '#374151',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.background = '#f3f4f6'
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.background = 'white'
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmStatusChange}
+                style={{
+                  padding: '10px 20px',
+                  border: 'none',
+                  borderRadius: '6px',
+                  background: '#3b82f6',
+                  color: 'white',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  transition: 'all 0.2s',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.background = '#2563eb'
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.background = '#3b82f6'
+                }}
+              >
+                <Check size={16} />
+                {statusConfirmData.buttonText}
+              </button>
+            </div>
+          </ModalContent>
         </ModalOverlay>
       )}
     </AdminSection>
