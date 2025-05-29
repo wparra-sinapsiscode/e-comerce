@@ -235,7 +235,10 @@ class CategoryService {
    */
   async deleteCategory(id) {
     try {
-      const response = await apiClient.delete(API_ENDPOINTS.CATEGORIES.BY_ID(id))
+      // Añadir parámetro force=true para permitir eliminar categorías con productos
+      const response = await apiClient.delete(API_ENDPOINTS.CATEGORIES.BY_ID(id), {
+        params: { force: 'true' }
+      })
       
       if (response.success) {
         // Clear cache
