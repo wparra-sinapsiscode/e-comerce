@@ -1622,19 +1622,75 @@ function AdminDashboard({
     }
   }
 
-  const progressOrder = (orderId, newStatus) => {
-    setOrders(safeOrders.map(order => 
-      order.id === orderId ? { ...order, status: newStatus } : order
-    ))
+  const progressOrder = async (orderId, newStatus) => {
+    console.log('🔄 INICIO FLUJO DE CAMBIO DE ESTADO 🔄');
+    const orderToUpdate = safeOrders.find(order => order.id === orderId);
+    console.log('📋 DATOS DEL PEDIDO:', {
+      pedidoID: orderId,
+      clienteNombre: orderToUpdate?.customer_name,
+      estadoActual: orderToUpdate?.status,
+      nuevoEstado: newStatus,
+      timestamp: new Date().toISOString()
+    });
     
-    const statusTexts = {
-      preparing: 'alistado para preparación',
-      ready_for_shipping: 'marcado como listo para envío',
-      shipped: 'marcado como enviado',
-      delivered: 'marcado como entregado'
+    try {
+      console.log('📡 ENVIANDO AL BACKEND:', {
+        endpoint: `/orders/${orderId}/status`,
+        metodo: 'PATCH',
+        datos: { status: newStatus, notes: 'Actualización desde flujo de pedido' }
+      });
+      
+      // CORRECCIÓN CLAVE: Llamada al backend para persistir el cambio
+      const response = await orderService.updateOrderStatus(orderId, newStatus, 'Actualización desde flujo de pedido');
+      
+      console.log('📩 RESPUESTA DEL BACKEND:', {
+        exito: response?.success,
+        datos: response?.data,
+        error: response?.error
+      });
+      
+      // Actualizar el estado local para reflejar el cambio en la UI
+      setOrders(safeOrders.map(order => 
+        order.id === orderId ? { ...order, status: newStatus } : order
+      ));
+      
+      console.log('🖥️ UI ACTUALIZADA:', {
+        totalPedidos: safeOrders.length,
+        pedidoActualizado: orderId,
+        nuevoEstado: newStatus
+      });
+      
+      // Log específico para cada estado
+      switch(newStatus) {
+        case 'preparing':
+          console.log('🍳 PEDIDO EN PREPARACIÓN:', orderId);
+          break;
+        case 'ready_for_shipping':
+          console.log('📦 PEDIDO LISTO PARA ENVÍO:', orderId);
+          break;
+        case 'shipped':
+          console.log('🚚 PEDIDO ENVIADO:', orderId);
+          break;
+        case 'delivered':
+          console.log('🏁 PEDIDO ENTREGADO:', orderId);
+          console.log('⚠️ VERIFICANDO PERSISTENCIA DELIVERED EN BD Y UI');
+          break;
+      }
+      
+      const statusTexts = {
+        preparing: 'alistado para preparación',
+        ready_for_shipping: 'marcado como listo para envío',
+        shipped: 'marcado como enviado',
+        delivered: 'marcado como entregado'
+      };
+      
+      showToast(`Pedido ${statusTexts[newStatus]}`, 'success');
+    } catch (error) {
+      console.error('💥 ERROR EN ACTUALIZACIÓN:', error);
+      showToast('Error al actualizar el estado del pedido', 'error');
     }
     
-    showToast(`Pedido ${statusTexts[newStatus]}`, 'success')
+    console.log('🔄 FIN FLUJO DE CAMBIO DE ESTADO 🔄');
   }
 
   const getWorkflowSteps = () => {
@@ -2757,11 +2813,29 @@ function AdminDashboard({
     }
   }
 
-  const confirmStatusChange = () => {
+  const confirmStatusChange = async () => {
     if (statusConfirmData) {
-      progressOrder(statusConfirmData.orderId, statusConfirmData.newStatus)
-      setShowStatusConfirmModal(false)
-      setStatusConfirmData(null)
+      console.log('🔔 CONFIRMACIÓN DE CAMBIO DE ESTADO:', {
+        pedido: statusConfirmData.orderId,
+        estadoActual: statusConfirmData.order?.status,
+        nuevoEstado: statusConfirmData.newStatus,
+        acción: statusConfirmData.actionText
+      });
+      
+      // Cerrar modal primero para mejor UX
+      setShowStatusConfirmModal(false);
+      
+      // Procesar el cambio de estado (ahora asíncrono)
+      await progressOrder(statusConfirmData.orderId, statusConfirmData.newStatus);
+      
+      // Limpiar datos del modal
+      setStatusConfirmData(null);
+      
+      // Log especial para delivered
+      if (statusConfirmData.newStatus === 'delivered') {
+        console.log('✅ CONFIRMACIÓN FINAL: Pedido marcado como ENTREGADO (DELIVERED)');
+        console.log('📊 ESTADO FINAL: Pedido debe permanecer visible en el dashboard');
+      }
     }
   }
 

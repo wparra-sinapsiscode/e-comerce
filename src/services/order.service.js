@@ -279,15 +279,46 @@ class OrderService {
     }
 
     try {
+      console.log('📤 ORDER SERVICE: Enviando actualización de estado:', {
+        endpoint: API_ENDPOINTS.ORDERS.UPDATE_STATUS(id),
+        data: updateData
+      });
+      
       const response = await apiClient.patch(
         API_ENDPOINTS.ORDERS.UPDATE_STATUS(id), 
         updateData
       )
       
+      console.log('📥 ORDER SERVICE: Respuesta de actualización:', {
+        success: response.success,
+        data: response.data,
+        error: response.error
+      });
+      
       if (response.success) {
-        // Clear cache to refresh order data
-        this._clearOrderCache()
-        cacheHelpers.clear(`${this.cachePrefix}_${id}`)
+        console.log('🗑️ ORDER SERVICE: Limpiando caché para actualizar datos');
+        
+        if (newStatus === 'DELIVERED') {
+          console.log('⚠️ ORDER SERVICE: Estado DELIVERED - preservando en caché');
+          // Preservar pedido en caché especial para DELIVERED
+          const orderCache = cacheHelpers.get(`${this.cachePrefix}_${id}`);
+          if (orderCache) {
+            const deliveredOrder = {...orderCache, status: 'DELIVERED'};
+            // Limpiar caché normal
+            this._clearOrderCache();
+            // Pero volver a guardar este pedido específico
+            cacheHelpers.set(`${this.cachePrefix}_${id}`, deliveredOrder, this.cacheTTL * 2);
+            console.log('✅ ORDER SERVICE: Pedido DELIVERED preservado en caché');
+          } else {
+            // Si no tenemos el pedido en caché, limpiamos normalmente
+            this._clearOrderCache();
+            cacheHelpers.clear(`${this.cachePrefix}_${id}`);
+          }
+        } else {
+          // Para otros estados, limpieza normal
+          this._clearOrderCache();
+          cacheHelpers.clear(`${this.cachePrefix}_${id}`);
+        }
       }
       
       return response
@@ -530,7 +561,32 @@ class OrderService {
    * @private
    */
   _clearOrderCache() {
-    cacheHelpers.clear(this.cachePrefix)
+    console.log('🧹 ORDER SERVICE: Limpiando caché de pedidos');
+    
+    // Intentar preservar pedidos DELIVERED al limpiar caché
+    // Primero buscamos todos los pedidos DELIVERED en caché
+    const deliveredOrders = [];
+    const allKeys = Object.keys(cacheHelpers.getAllKeys ? cacheHelpers.getAllKeys() : {});
+    
+    for (const key of allKeys) {
+      if (key.startsWith(this.cachePrefix)) {
+        const cached = cacheHelpers.get(key);
+        if (cached && cached.status === 'DELIVERED') {
+          deliveredOrders.push({key, data: cached});
+        }
+      }
+    }
+    
+    // Limpiamos todo el caché
+    cacheHelpers.clear(this.cachePrefix);
+    
+    // Restauramos los pedidos DELIVERED
+    if (deliveredOrders.length > 0) {
+      console.log(`🔄 ORDER SERVICE: Restaurando ${deliveredOrders.length} pedidos DELIVERED al caché`);
+      for (const {key, data} of deliveredOrders) {
+        cacheHelpers.set(key, data, this.cacheTTL * 2); // Mayor tiempo de caché para delivered
+      }
+    }
   }
 }
 
