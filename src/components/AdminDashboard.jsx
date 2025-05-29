@@ -1466,17 +1466,23 @@ function AdminDashboard({
     order.status.toLowerCase() === 'awaiting_payment' && 
     order.payment_status !== 'VERIFIED'
   ).length
-  const deliveredOrders = safeOrders.filter(order => order.status === 'delivered').length
+  const deliveredOrders = safeOrders.filter(order => 
+    order.status === 'DELIVERED' || order.status === 'delivered'
+  ).length
   const activeOrders = safeOrders.filter(order => {
-    // Excluir delivered y cancelled
-    if (['delivered', 'cancelled'].includes(order.status.toLowerCase())) return false
+    // Excluir DELIVERED y CANCELLED (considerar también versiones en minúsculas para compatibilidad)
+    if (['DELIVERED', 'CANCELLED', 'delivered', 'cancelled'].includes(order.status)) return false
     // Si está esperando pago pero ya está verificado, no es activo
     if (order.status.toLowerCase() === 'awaiting_payment' && order.payment_status === 'VERIFIED') return false
     return true
   }).length
   const pendingPayments = safePayments.filter(payment => payment.status === 'PENDING').length
   const totalProducts = safeProducts.length
-  const totalIncome = safeOrders.filter(order => order.status === 'delivered').reduce((acc, curr) => acc + curr.total, 0)
+  // Cambiado a MAYÚSCULAS para mantener consistencia
+  const totalIncome = safeOrders.filter(order => 
+    // Aceptamos tanto 'DELIVERED' como 'delivered' para mayor compatibilidad
+    order.status === 'DELIVERED' || order.status === 'delivered'
+  ).reduce((acc, curr) => acc + curr.total, 0)
 
   // 🚨 LOGS DE DEPURACIÓN PARA PAGOS PENDIENTES
   console.log('📊 ÓRDENES ESPERANDO PAGO (SIN VERIFICAR):', orders?.filter(o => 
@@ -1626,19 +1632,16 @@ function AdminDashboard({
     console.log('🔄 INICIO FLUJO DE CAMBIO DE ESTADO 🔄');
     const orderToUpdate = safeOrders.find(order => order.id === orderId);
     
-    // En el frontend trabajamos con estados en minúsculas
-    const frontendStatus = typeof newStatus === 'string' ? newStatus.toLowerCase() : newStatus;
-    
-    // Para el backend, enviamos en MAYÚSCULAS para asegurar compatibilidad con el enum de Prisma
-    const backendStatus = typeof newStatus === 'string' ? newStatus.toUpperCase() : 
-                         (newStatus ? String(newStatus).toUpperCase() : '');
+    // Trabajar directamente con estados en MAYÚSCULAS (consistente con backend)
+    // Si recibimos un estado en minúsculas, lo convertimos a MAYÚSCULAS
+    const orderStatus = typeof newStatus === 'string' ? newStatus.toUpperCase() : 
+                      (newStatus ? String(newStatus).toUpperCase() : '');
     
     console.log('📋 DATOS DEL PEDIDO:', {
       pedidoID: orderId,
       clienteNombre: orderToUpdate?.customer_name,
       estadoActual: orderToUpdate?.status,
-      nuevoEstadoFrontend: frontendStatus,
-      nuevoEstadoBackend: backendStatus,
+      nuevoEstado: orderStatus,
       timestamp: new Date().toISOString()
     });
     
@@ -1647,14 +1650,13 @@ function AdminDashboard({
         endpoint: `/payments/order/${orderId}/status`,
         metodo: 'PATCH',
         datos: { 
-          status: backendStatus, // Enviamos en MAYÚSCULAS
+          status: orderStatus, // Ya está en MAYÚSCULAS
           notes: 'Actualización desde flujo de pedido' 
         }
       });
       
-      // CORRECCIÓN CLAVE: Llamada al backend para persistir el cambio
-      // El servicio se encarga de la normalización adicional si es necesaria
-      const response = await orderService.updateOrderStatus(orderId, backendStatus, 'Actualización desde flujo de pedido');
+      // Llamada al backend para persistir el cambio
+      const response = await orderService.updateOrderStatus(orderId, orderStatus, 'Actualización desde flujo de pedido');
       
       console.log('📩 RESPUESTA DEL BACKEND:', {
         exito: response?.success,
@@ -1663,28 +1665,28 @@ function AdminDashboard({
       });
       
       // Independientemente de la respuesta, actualizamos la UI para mantener consistencia
-      // En el frontend siempre usamos estados en minúsculas
+      // Ahora usamos estados en MAYÚSCULAS en todo el frontend
       setOrders(safeOrders.map(order => 
-        order.id === orderId ? { ...order, status: frontendStatus } : order
+        order.id === orderId ? { ...order, status: orderStatus } : order
       ));
       
       console.log('🖥️ UI ACTUALIZADA:', {
         totalPedidos: safeOrders.length,
         pedidoActualizado: orderId,
-        nuevoEstado: frontendStatus
+        nuevoEstado: orderStatus
       });
       
       if (response && response.success) {
         console.log('✅ BACKEND: Actualización exitosa del estado');
         
         // Logs específicos para seguimiento de estados
-        if (frontendStatus === 'preparing') {
+        if (orderStatus === 'PREPARING') {
           console.log('🍳 PEDIDO EN PREPARACIÓN:', orderId);
-        } else if (frontendStatus === 'ready_for_shipping') {
+        } else if (orderStatus === 'READY_FOR_SHIPPING') {
           console.log('📦 PEDIDO LISTO PARA ENVÍO:', orderId);
-        } else if (frontendStatus === 'shipped') {
+        } else if (orderStatus === 'SHIPPED') {
           console.log('🚚 PEDIDO ENVIADO:', orderId);
-        } else if (frontendStatus === 'delivered') {
+        } else if (orderStatus === 'DELIVERED') {
           console.log('✅ PEDIDO ENTREGADO:', orderId);
           // Forzar la permanencia en caché para pedidos entregados
           console.log('📌 PRESERVANDO PEDIDO ENTREGADO EN CACHÉ');
@@ -1695,18 +1697,18 @@ function AdminDashboard({
       }
       
       const statusTexts = {
-        preparing: 'alistado para preparación',
-        ready_for_shipping: 'marcado como listo para envío',
-        shipped: 'marcado como enviado',
-        delivered: 'marcado como entregado'
+        PREPARING: 'alistado para preparación',
+        READY_FOR_SHIPPING: 'marcado como listo para envío',
+        SHIPPED: 'marcado como enviado',
+        DELIVERED: 'marcado como entregado'
       };
       
-      showToast(`Pedido ${statusTexts[frontendStatus] || 'actualizado'}`, 'success');
+      showToast(`Pedido ${statusTexts[orderStatus] || 'actualizado'}`, 'success');
     } catch (error) {
       console.error('❌ ERROR GRAVE AL PROCESAR CAMBIO DE ESTADO:', error);
       // Actualizar UI a pesar del error
       setOrders(safeOrders.map(order => 
-        order.id === orderId ? { ...order, status: frontendStatus } : order
+        order.id === orderId ? { ...order, status: orderStatus } : order
       ));
       
       showToast('Error al actualizar el estado del pedido', 'error');
@@ -1715,7 +1717,7 @@ function AdminDashboard({
     console.log('🔄 FIN FLUJO DE CAMBIO DE ESTADO 🔄');
     
     // Si estamos marcando como entregado, asegurar que permanezca visible
-    if (frontendStatus === 'delivered') {
+    if (orderStatus === 'DELIVERED') {
       console.log('🎯 PEDIDO ENTREGADO: Forzando visibilidad permanente');
       
       // Marcar en localStorage para asegurar visibilidad persistente
@@ -1898,7 +1900,7 @@ function AdminDashboard({
               {payment.voucher ? 'Click para verificar pago' : 'Click para verificar pago en efectivo'}
             </div>
           )}
-          {order.status === 'cancelled' && (
+          {(order.status === 'CANCELLED' || order.status === 'cancelled') && (
             <Status style={{ background: '#ef4444', color: 'white', fontSize: '12px' }}>
               Cancelado
             </Status>
@@ -2801,7 +2803,7 @@ function AdminDashboard({
         setStatusConfirmData({
           orderId,
           order,
-          newStatus: 'preparing',
+          newStatus: 'PREPARING', // Cambiado a MAYÚSCULAS
           actionText: 'Iniciar Preparación',
           confirmText: '¿Está seguro de que desea iniciar la preparación de este pedido?',
           buttonText: 'Sí, iniciar preparación',
@@ -2814,7 +2816,7 @@ function AdminDashboard({
         setStatusConfirmData({
           orderId,
           order,
-          newStatus: 'ready_for_shipping',
+          newStatus: 'READY_FOR_SHIPPING', // Cambiado a MAYÚSCULAS
           actionText: 'Marcar como Listo',
           confirmText: '¿Está seguro de que el pedido está listo para envío?',
           buttonText: 'Sí, marcar como listo',
@@ -2827,7 +2829,7 @@ function AdminDashboard({
         setStatusConfirmData({
           orderId,
           order,
-          newStatus: 'shipped',
+          newStatus: 'SHIPPED', // Cambiado a MAYÚSCULAS
           actionText: 'Marcar como Enviado',
           confirmText: '¿Está seguro de que el pedido ha sido enviado?',
           buttonText: 'Sí, marcar como enviado',
@@ -2840,7 +2842,7 @@ function AdminDashboard({
         setStatusConfirmData({
           orderId,
           order,
-          newStatus: 'delivered',
+          newStatus: 'DELIVERED', // Cambiado a MAYÚSCULAS
           actionText: 'Marcar como Entregado',
           confirmText: '¿Está seguro de que el pedido ha sido entregado?',
           buttonText: 'Sí, marcar como entregado',
@@ -2928,9 +2930,13 @@ function AdminDashboard({
   const getFilteredOrders = () => {
     switch (orderFilter) {
       case 'active':
-        return safeOrders.filter(order => !['delivered', 'cancelled'].includes(order.status))
+        return safeOrders.filter(order => 
+          !['DELIVERED', 'CANCELLED', 'delivered', 'cancelled'].includes(order.status)
+        )
       case 'delivered':
-        return safeOrders.filter(order => order.status === 'delivered')
+        return safeOrders.filter(order => 
+          order.status === 'DELIVERED' || order.status === 'delivered'
+        )
       case 'all':
         return safeOrders
       default:
@@ -2951,9 +2957,16 @@ function AdminDashboard({
   const paginatedProducts = getPaginatedProducts()
 
   // Statistics calculation (moved up to avoid duplication)
-  const preparingOrders = safeOrders.filter(order => order.status === 'preparing').length
-  const readyOrders = safeOrders.filter(order => order.status === 'ready_for_shipping').length
-  const shippedOrders = safeOrders.filter(order => order.status === 'shipped').length
+  // Usar MAYÚSCULAS para estados, pero mantener compatibilidad con minúsculas
+  const preparingOrders = safeOrders.filter(order => 
+    order.status === 'PREPARING' || order.status === 'preparing'
+  ).length
+  const readyOrders = safeOrders.filter(order => 
+    order.status === 'READY_FOR_SHIPPING' || order.status === 'ready_for_shipping'
+  ).length
+  const shippedOrders = safeOrders.filter(order => 
+    order.status === 'SHIPPED' || order.status === 'shipped'
+  ).length
 
   return (
     <AdminSection>
@@ -4064,7 +4077,7 @@ function AdminDashboard({
                 {selectedPayment.status === 'VERIFIED' && 
                  (() => {
                    const order = safeOrders.find(o => o.id === selectedPayment.order_id)
-                   return order && order.status === 'preparing'
+                   return order && (order.status === 'PREPARING' || order.status === 'preparing')
                  })() && (
                   <div style={{ 
                     textAlign: 'center', 

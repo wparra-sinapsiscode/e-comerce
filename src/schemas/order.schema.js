@@ -1,13 +1,13 @@
 import { z } from 'zod'
 
-// Order status enum
+// Order status enum - usando MAYÚSCULAS para coincidir con el backend
 export const OrderStatusSchema = z.enum([
-  'awaiting_payment',
-  'preparing', 
-  'ready_for_shipping',
-  'shipped',
-  'delivered',
-  'cancelled'
+  'AWAITING_PAYMENT',
+  'PREPARING', 
+  'READY_FOR_SHIPPING',
+  'SHIPPED',
+  'DELIVERED',
+  'CANCELLED'
 ])
 
 // Payment method enum
@@ -144,49 +144,49 @@ export const OrderCalculationSchema = z.object({
   tax_rate: z.number().min(0).max(1).default(0.18), // 18% IGV in Peru
 })
 
-// Order status flow validation
+// Order status flow validation - cambiado a MAYÚSCULAS
 export const ORDER_STATUS_FLOW = {
-  awaiting_payment: ['preparing', 'cancelled'],
-  preparing: ['ready_for_shipping', 'cancelled'],
-  ready_for_shipping: ['shipped', 'cancelled'],
-  shipped: ['delivered', 'cancelled'],
-  delivered: [], // Final state
-  cancelled: [], // Final state
+  AWAITING_PAYMENT: ['PREPARING', 'CANCELLED'],
+  PREPARING: ['READY_FOR_SHIPPING', 'CANCELLED'],
+  READY_FOR_SHIPPING: ['SHIPPED', 'CANCELLED'],
+  SHIPPED: ['DELIVERED', 'CANCELLED'],
+  DELIVERED: [], // Final state
+  CANCELLED: [], // Final state
 }
 
-// Status display configuration
+// Status display configuration - cambiado a MAYÚSCULAS para coincidir con backend
 export const ORDER_STATUS_CONFIG = {
-  awaiting_payment: {
+  AWAITING_PAYMENT: {
     label: 'Esperando Pago',
     color: '#f59e0b',
     description: 'Pedido creado, esperando verificación de pago',
     icon: 'Clock'
   },
-  preparing: {
+  PREPARING: {
     label: 'Preparando',
     color: '#3b82f6', 
     description: 'Pago verificado, preparando pedido',
     icon: 'Package'
   },
-  ready_for_shipping: {
+  READY_FOR_SHIPPING: {
     label: 'Listo para Envío',
     color: '#8b5cf6',
     description: 'Pedido alistado, listo para enviar',
     icon: 'Truck'
   },
-  shipped: {
+  SHIPPED: {
     label: 'Enviado',
     color: '#06b6d4',
     description: 'Pedido en camino al cliente',
     icon: 'MapPin'
   },
-  delivered: {
+  DELIVERED: {
     label: 'Entregado',
     color: '#10b981',
     description: 'Pedido entregado exitosamente',
     icon: 'CheckCircle'
   },
-  cancelled: {
+  CANCELLED: {
     label: 'Cancelado',
     color: '#ef4444',
     description: 'Pedido cancelado',
@@ -219,22 +219,24 @@ export const validateCreateOrder = (data) => {
 }
 
 export const validateOrderStatusTransition = (currentStatus, newStatus) => {
-  // Normalizar estados para comparación (tolerar mayúsculas/minúsculas)
-  const normalizedCurrent = typeof currentStatus === 'string' ? currentStatus.toLowerCase() : '';
-  const normalizedNew = typeof newStatus === 'string' ? newStatus.toLowerCase() : '';
+  // Convertir a MAYÚSCULAS para mantener consistencia con el backend
+  const normalizedCurrent = typeof currentStatus === 'string' ? currentStatus.toUpperCase() : '';
+  const normalizedNew = typeof newStatus === 'string' ? newStatus.toUpperCase() : '';
   
   console.log('🔄 VALIDACIÓN DE TRANSICIÓN DE ESTADO:', {
-    estadoActual: normalizedCurrent,
-    nuevoEstado: normalizedNew
+    estadoActual: currentStatus,
+    estadoNormalizado: normalizedCurrent,
+    nuevoEstado: newStatus,
+    nuevoEstadoNormalizado: normalizedNew
   });
   
-  // Si son el mismo estado (ignorando case), permitir
+  // Si son el mismo estado, permitir
   if (normalizedCurrent === normalizedNew) {
-    console.log('✅ Transición permitida: Mismo estado (case-insensitive)');
+    console.log('✅ Transición permitida: Mismo estado');
     return true;
   }
   
-  // Buscar transiciones permitidas
+  // Buscar transiciones permitidas (usando estados en MAYÚSCULAS)
   const allowedTransitions = ORDER_STATUS_FLOW[normalizedCurrent] || [];
   
   // Verificar si la transición está permitida

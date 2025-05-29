@@ -310,14 +310,14 @@ class OrderService {
       nuevoEstado: newStatus
     });
 
-    // Asegurarse de que el estado está en el formato correcto para el backend (MAYÚSCULAS)
-    // Convertimos explícitamente a MAYÚSCULAS para asegurar compatibilidad con el enum del backend
+    // Ya no es necesario normalizar si el frontend ya envía en MAYÚSCULAS
+    // Pero mantenemos una verificación por seguridad
     const normalizedStatus = typeof newStatus === 'string' 
       ? newStatus.toUpperCase() 
       : (newStatus ? String(newStatus).toUpperCase() : '');
     
-    console.log('🔄 ORDER SERVICE: Normalizando estado:', {
-      estadoOriginal: newStatus,
+    console.log('🔄 ORDER SERVICE: Verificando formato de estado:', {
+      estadoRecibido: newStatus,
       estadoNormalizado: normalizedStatus
     });
     
@@ -389,7 +389,7 @@ class OrderService {
           if (orderCache) {
             const deliveredOrder = {
               ...orderCache, 
-              status: 'delivered', // Frontend usa minúsculas
+              status: 'DELIVERED', // Ahora todo en MAYÚSCULAS
               _delivered_at: new Date().toISOString(),
               _preserved: true
             };
@@ -419,7 +419,7 @@ class OrderService {
               if (refreshResponse.success) {
                 const deliveredOrder = {
                   ...refreshResponse.data,
-                  status: 'delivered', // Frontend usa minúsculas
+                  status: 'DELIVERED', // Ahora todo en MAYÚSCULAS
                   _delivered_at: new Date().toISOString(),
                   _preserved: true
                 };
@@ -728,6 +728,7 @@ class OrderService {
     for (const key of allKeys) {
       if (key.startsWith(this.cachePrefix)) {
         const cached = cacheHelpers.get(key);
+        // Estado ya debe estar en MAYÚSCULAS
         if (cached && cached.status === 'DELIVERED') {
           deliveredOrders.push({key, data: cached});
         }
