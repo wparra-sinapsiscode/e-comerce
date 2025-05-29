@@ -6,7 +6,7 @@
 // Environment-based configuration
 const API_CONFIG = {
   development: {
-    BASE_URL: import.meta.env.VITE_API_URL || 'http://localhost:3001',
+    BASE_URL: import.meta.env.VITE_API_URL || 'http://localhost:4000',
     API_VERSION: import.meta.env.VITE_API_VERSION || 'v1',
     TIMEOUT: 10000,
   },

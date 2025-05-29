@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import styled from 'styled-components'
-import { Store, Mail, Lock, User, Phone } from 'lucide-react'
+import { Store, Mail, Lock, User, Phone, MapPin } from 'lucide-react'
 
 const AuthSection = styled.section`
   min-height: 100vh;
@@ -182,7 +182,8 @@ function AuthPage({ login, register }) {
     email: '',
     phone: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    address: ''
   })
 
   const handleLoginSubmit = async (e) => {
@@ -208,7 +209,7 @@ function AuthPage({ login, register }) {
       hasPassword: !!registerData.password
     })
     
-    if (registerData.name && registerData.email && registerData.phone && registerData.password) {
+    if (registerData.name && registerData.email && registerData.phone && registerData.address && registerData.password) {
       if (registerData.password !== registerData.confirmPassword) {
         console.log('🔴 FRONTEND - Error: Las contraseñas no coinciden')
         return
@@ -219,10 +220,11 @@ function AuthPage({ login, register }) {
         const response = await register(registerData)
         console.log('🟢 FRONTEND - Respuesta completa:', response)
         
-        if (response?.success && response?.data?.user) {
-          console.log('🟢 FRONTEND - Usuario registrado:', response.data.user)
-          console.log('🟢 FRONTEND - Rol del usuario:', response.data.user.role)
-          const targetRoute = response.data.user.role === 'ADMIN' ? '/admin' : '/store'
+        if (response && response.id) {
+          // response es directamente el usuario desde App.jsx
+          console.log('🟢 FRONTEND - Usuario registrado:', response)
+          console.log('🟢 FRONTEND - Rol del usuario:', response.role)
+          const targetRoute = response.role === 'ADMIN' ? '/admin' : '/store'
           console.log('🟢 FRONTEND - Redirigiendo a:', targetRoute)
           navigate(targetRoute)
         } else {
@@ -364,6 +366,17 @@ function AuthPage({ login, register }) {
                 autoComplete="tel"
                 value={registerData.phone}
                 onChange={(e) => setRegisterData({...registerData, phone: e.target.value})}
+                required
+              />
+            </InputGroup>
+            <InputGroup>
+              <MapPin size={16} />
+              <input
+                type="text"
+                placeholder="Dirección completa"
+                autoComplete="address-line1"
+                value={registerData.address}
+                onChange={(e) => setRegisterData({...registerData, address: e.target.value})}
                 required
               />
             </InputGroup>

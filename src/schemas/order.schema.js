@@ -12,10 +12,10 @@ export const OrderStatusSchema = z.enum([
 
 // Payment method enum
 export const PaymentMethodSchema = z.enum([
-  'transfer',
-  'yape', 
-  'plin',
-  'cash'
+  'TRANSFER',
+  'YAPE', 
+  'PLIN',
+  'CASH'
 ])
 
 // Payment status enum

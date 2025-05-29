@@ -25,11 +25,10 @@ export const PaymentSchema = z.object({
 // Payment creation schema
 export const CreatePaymentSchema = z.object({
   order_id: z.string().min(1, 'ID de pedido requerido'),
-  customer_name: z.string().min(1, 'Nombre requerido').max(100),
-  customer_phone: z.string().min(9, 'Teléfono inválido').max(15),
   amount: z.number().positive('Monto debe ser mayor a 0'),
   method: PaymentMethodSchema,
   reference_number: z.string().max(50).optional().nullable(),
+  voucher: z.string().optional().nullable(), // Base64 image data
 })
 
 // Payment verification schema
@@ -79,10 +78,10 @@ export const DigitalWalletInfoSchema = z.object({
 })
 
 export const PaymentInfoSchema = z.object({
-  transfer: BankTransferInfoSchema,
-  yape: DigitalWalletInfoSchema,
-  plin: DigitalWalletInfoSchema,
-  cash: z.object({
+  TRANSFER: BankTransferInfoSchema,
+  YAPE: DigitalWalletInfoSchema,
+  PLIN: DigitalWalletInfoSchema,
+  CASH: z.object({
     instructions: z.string(),
     notes: z.string().optional(),
   }),
@@ -98,16 +97,16 @@ export const PaymentStatsSchema = z.object({
   verified_amount: z.number().min(0),
   pending_amount: z.number().min(0),
   by_method: z.object({
-    transfer: z.number().min(0),
-    yape: z.number().min(0),
-    plin: z.number().min(0),
-    cash: z.number().min(0),
+    TRANSFER: z.number().min(0),
+    YAPE: z.number().min(0),
+    PLIN: z.number().min(0),
+    CASH: z.number().min(0),
   }),
 })
 
 // Payment method configuration
 export const PAYMENT_METHOD_CONFIG = {
-  transfer: {
+  TRANSFER: {
     label: 'Transferencia Bancaria',
     icon: 'CreditCard',
     color: '#2563eb',
@@ -115,7 +114,7 @@ export const PAYMENT_METHOD_CONFIG = {
     requires_voucher: true,
     processing_time: '2-4 horas',
   },
-  yape: {
+  YAPE: {
     label: 'Yape',
     icon: 'Smartphone', 
     color: '#722f9e',
@@ -123,7 +122,7 @@ export const PAYMENT_METHOD_CONFIG = {
     requires_voucher: true,
     processing_time: '1-2 horas',
   },
-  plin: {
+  PLIN: {
     label: 'Plin',
     icon: 'Smartphone',
     color: '#00a651',
@@ -131,7 +130,7 @@ export const PAYMENT_METHOD_CONFIG = {
     requires_voucher: true,
     processing_time: '1-2 horas',
   },
-  cash: {
+  CASH: {
     label: 'Efectivo',
     icon: 'DollarSign',
     color: '#16a34a',

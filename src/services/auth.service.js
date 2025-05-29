@@ -190,6 +190,7 @@ class AuthService {
       name: userData.name,
       email: userData.email,
       phone: userData.phone,
+      address: userData.address, // ← AGREGADO: Campo dirección
       password: userData.password,
       confirm_password: userData.confirmPassword || userData.password,
       accept_terms: true, // Auto aceptar para registro público

@@ -714,6 +714,18 @@ const QuantityControl = styled.div`
     align-items: center;
     justify-content: center;
     cursor: pointer;
+    transition: all 0.2s ease;
+    
+    &:hover:not(:disabled) {
+      background-color: var(--primary-color);
+      color: white;
+    }
+    
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      background-color: var(--gray-light);
+    }
   }
   
   input {
@@ -1288,9 +1300,9 @@ function ClientStore({
   })
   const [orderConfirmed, setOrderConfirmed] = useState(false)
   const [confirmedOrder, setConfirmedOrder] = useState(null)
-  // VOUCHER: Temporalmente deshabilitado
-  // const [voucherFile, setVoucherFile] = useState(null)
-  // const [voucherPreview, setVoucherPreview] = useState(null)
+  // Estados para manejar el comprobante
+  const [voucherFile, setVoucherFile] = useState(null)
+  const [voucherPreview, setVoucherPreview] = useState(null)
   const [selectedPresentations, setSelectedPresentations] = useState({})
 
   // Filter and sort products based on category, search, and other filters
@@ -1496,8 +1508,17 @@ function ClientStore({
     }
 
     const updatedCart = [...cart]
-    updatedCart[index].quantity = newQuantity
-    updatedCart[index].total = updatedCart[index].price * newQuantity
+    const item = updatedCart[index]
+    const unitConfig = getUnitConfig(item.unit)
+    
+    // Redondear la cantidad según el tipo de unidad
+    const validQuantity = unitConfig.allowDecimals 
+      ? Math.max(unitConfig.minQuantity, parseFloat(newQuantity.toFixed(unitConfig.displayDecimals)))
+      : Math.max(unitConfig.minQuantity, Math.floor(newQuantity))
+    
+    updatedCart[index].quantity = validQuantity
+    // Calcular total con precisión de 2 decimales para precio
+    updatedCart[index].total = parseFloat((updatedCart[index].price * validQuantity).toFixed(2))
     setCart(updatedCart)
   }
 
@@ -1528,7 +1549,7 @@ function ClientStore({
     
     const method = checkoutData.paymentMethod
     
-    if (method === 'cash') {
+    if (method === 'CASH') {
       return (
         <PaymentDetails>
           <h4>
@@ -1537,26 +1558,26 @@ function ClientStore({
           </h4>
           <div className="instruction">
             <Info size={16} style={{ marginRight: '8px', verticalAlign: 'text-top' }} />
-            <strong>Instrucciones:</strong> {paymentInfo.instructions.cash}
+            <strong>Instrucciones:</strong> {paymentInfo.instructions[method.toLowerCase()]}
           </div>
         </PaymentDetails>
       )
     }
     
-    const methodData = paymentInfo[method]
-    const instruction = paymentInfo.instructions[method]
+    const methodData = paymentInfo[method.toLowerCase()]
+    const instruction = paymentInfo.instructions[method.toLowerCase()]
     
     return (
       <PaymentDetails>
         <h4>
-          {method === 'transfer' && <CreditCard size={20} />}
-          {method === 'yape' && <Smartphone size={20} />}
-          {method === 'plin' && <Smartphone size={20} />}
+          {method === 'TRANSFER' && <CreditCard size={20} />}
+          {method === 'YAPE' && <Smartphone size={20} />}
+          {method === 'PLIN' && <Smartphone size={20} />}
           Datos para el pago - Total: S/ {formatPrice(total)}
         </h4>
         
         <div className="payment-info">
-          {method === 'transfer' && (
+          {method === 'TRANSFER' && (
             <>
               <p><strong>Banco:</strong> {methodData.bankName}</p>
               <p><strong>Número de cuenta:</strong> {methodData.accountNumber}</p>
@@ -1566,7 +1587,7 @@ function ClientStore({
             </>
           )}
           
-          {(method === 'yape' || method === 'plin') && (
+          {(method === 'YAPE' || method === 'PLIN') && (
             <>
               <p><strong>Número de teléfono:</strong> {methodData.phoneNumber}</p>
               <div className="qr-code">
@@ -1631,8 +1652,8 @@ function ClientStore({
         const orderId = orderResponse.data?.id || orderResponse.data?.data?.id;
         console.log('🆔 Order ID extraído:', orderId);
         
-        // PASO 2: Crear el pago (SIMPLIFICADO - sin voucher)
-        if (orderData.payment_method === 'transfer') {
+        // PASO 2: Crear el pago para métodos que requieren comprobante
+        if (['TRANSFER', 'YAPE', 'PLIN'].includes(orderData.payment_method)) {
           console.log('📄 Creando pago (backend pattern)...');
           
           // Validar que todos los datos requeridos estén presentes
@@ -1654,10 +1675,10 @@ function ClientStore({
           // PASO 2A: Crear pago con todos los campos requeridos por el schema
           const paymentData = {
             order_id: orderId,
-            customer_name: orderData.customer_name,
-            customer_phone: orderData.customer_phone,
-            method: orderData.payment_method.toUpperCase(), // ✅ Backend controller espera MAYÚSCULAS
-            amount: parseFloat(total)
+            method: orderData.payment_method, // ✅ Ya almacenado en mayúsculas
+            amount: parseFloat(total),
+            // Agregar el voucher Base64 si existe
+            ...(checkoutData.voucherBase64 && { voucher: checkoutData.voucherBase64 })
           }
           
           // Debug adicional
@@ -1725,6 +1746,27 @@ function ClientStore({
             console.error('❌ Datos enviados que fallaron:', paymentData);
             showToast('Pedido creado pero falló el registro del pago', 'warning')
           }
+        } else if (orderData.payment_method === 'CASH') {
+          // PASO 2: Crear pago para efectivo (sin comprobante)
+          console.log('💰 Creando pago en efectivo...');
+          
+          const paymentData = {
+            order_id: orderId,
+            method: orderData.payment_method,
+            amount: parseFloat(total)
+            // No voucher para efectivo
+          }
+          
+          console.log('💳 Payment data (efectivo):', paymentData);
+          
+          const paymentResponse = await paymentService.createPayment(paymentData)
+          
+          if (paymentResponse.success) {
+            console.log('✅ Pago en efectivo registrado exitosamente:', paymentResponse.data);
+          } else {
+            console.error('❌ Error creando pago en efectivo:', paymentResponse.error);
+            showToast('Pedido creado pero falló el registro del pago', 'warning')
+          }
         }
         
         // Clear cart and set confirmed order
@@ -1741,9 +1783,10 @@ function ClientStore({
           ...orderResponse.data // Include any additional fields from response
         })
         setOrderConfirmed(true)
-        // VOUCHER: Temporalmente deshabilitado
-        // setVoucherFile(null)
-        // setVoucherPreview(null)
+        // Limpiar voucher después de confirmar pedido
+        setVoucherFile(null)
+        setVoucherPreview(null)
+        setCheckoutData(prev => ({ ...prev, voucherBase64: null }))
         setActiveView('confirmation')
         showToast('¡Pedido realizado con éxito!', 'success')
       } else {
@@ -1801,50 +1844,54 @@ function ClientStore({
 
   // Voucher handling functions
   // VOUCHER: Temporalmente deshabilitado
-  // const handleVoucherUpload = (event) => {
-  //   const file = event.target.files[0]
-  //   if (file) {
-  //     processVoucherFile(file)
-  //   }
-  // }
+  const handleVoucherUpload = (event) => {
+    const file = event.target.files[0]
+    if (file) {
+      processVoucherFile(file)
+    }
+  }
 
-  // VOUCHER: Temporalmente deshabilitado
-  // const processVoucherFile = (file) => {
-  //   // Validate file type
-  //   const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'application/pdf']
-  //   if (!allowedTypes.includes(file.type)) {
-  //     showToast('Solo se permiten archivos de imagen (JPG, PNG, GIF) o PDF', 'error')
-  //     return
-  //   }
-  //
-  //   // Validate file size (max 5MB)
-  //   if (file.size > 5 * 1024 * 1024) {
-  //     showToast('El archivo no puede superar los 5MB', 'error')
-  //     return
-  //   }
-  //
-  //   setVoucherFile(file)
-  //
-  //   // Create preview for images
-  //   if (file.type.startsWith('image/')) {
-  //     const reader = new FileReader()
-  //     reader.onload = (e) => {
-  //       setVoucherPreview(e.target.result)
-  //     }
-  //     reader.readAsDataURL(file)
-  //   } else {
-  //     setVoucherPreview(null)
-  //   }
-  //
-  //   showToast('Voucher adjuntado correctamente', 'success')
-  // }
+  const processVoucherFile = (file) => {
+    // Validate file type (solo imágenes para Base64)
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif']
+    if (!allowedTypes.includes(file.type)) {
+      showToast('Solo se permiten archivos de imagen (JPG, PNG, GIF)', 'error')
+      return
+    }
 
-  // VOUCHER: Temporalmente deshabilitado
-  // const removeVoucher = () => {
-  //   setVoucherFile(null)
-  //   setVoucherPreview(null)
-  //   showToast('Voucher eliminado', 'info')
-  // }
+    // Validate file size (max 2MB para Base64)
+    if (file.size > 2 * 1024 * 1024) {
+      showToast('El archivo no puede superar los 2MB', 'error')
+      return
+    }
+
+    // Convertir a Base64 como hacemos con productos
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const base64String = e.target.result
+      setVoucherFile(file)
+      setVoucherPreview(base64String)
+      // Guardamos el Base64 en checkoutData para enviarlo al backend
+      setCheckoutData(prev => ({
+        ...prev,
+        voucherBase64: base64String
+      }))
+    }
+    reader.readAsDataURL(file)
+
+    showToast('Comprobante adjuntado correctamente', 'success')
+  }
+
+  const removeVoucher = () => {
+    setVoucherFile(null)
+    setVoucherPreview(null)
+    // Limpiar Base64 de checkoutData
+    setCheckoutData(prev => ({
+      ...prev,
+      voucherBase64: null
+    }))
+    showToast('Comprobante eliminado', 'info')
+  }
 
   const formatFileSize = (bytes) => {
     if (bytes === 0) return '0 Bytes'
@@ -1856,56 +1903,65 @@ function ClientStore({
 
   // VOUCHER: Temporalmente deshabilitado
   // // Render voucher upload component
-  // const renderVoucherUpload = () => {
-  //   // Don't show voucher upload for cash payments
-  //   if (checkoutData.paymentMethod === 'cash') {
-  //     return null
-  //   }
-  //
-  //   return (
-  //     <VoucherUpload>
-  //       <div className="voucher-label">
-  //         <Upload size={16} />
-  //         Comprobante de pago (opcional)
-  //       </div>
-  //       
-  //       {!voucherFile ? (
-  //         <>
-  //           <div 
-  //             className="upload-area"
-  //             onClick={() => document.getElementById('voucher-input').click()}
-  //           >
-  //             <div className="upload-content">
-  //               <Upload size={40} />
-  //               <p>Haz clic para subir tu comprobante de pago</p>
-  //               <p className="file-types">Formatos: JPG, PNG, GIF, PDF (máx. 5MB)</p>
-  //             </div>
-  //           </div>
-  //           <input
-  //             id="voucher-input"
-  //             type="file"
-  //             accept=".jpg,.jpeg,.png,.gif,.pdf"
-  //             onChange={handleVoucherUpload}
-  //           />
-  //         </>
-  //       ) : (
-  //         <div className="voucher-preview">
-  //           <div className="preview-header">
-  //             <span>Comprobante adjuntado</span>
-  //             <button type="button" onClick={removeVoucher}>
-  //               <X size={16} />
-  //             </button>
-  //           </div>
-  //           <div className="preview-content">
-  //             {voucherFile.type.startsWith('image/') ? (
-  //               <>
-  //                 {voucherPreview && <img src={voucherPreview} alt="Preview" />}
-  //                 <div className="file-info">
-  //                   <div className="file-name">{voucherFile.name}</div>
-  //                   <div className="file-size">{formatFileSize(voucherFile.size)}</div>
-  //                 </div>
-  //               </>
-  //             ) : (
+  const renderVoucherUpload = () => {
+    // Don't show voucher upload for cash payments or if no payment method selected
+    if (!checkoutData.paymentMethod || checkoutData.paymentMethod === 'CASH') {
+      return null
+    }
+
+    // Only show for transfer, yape, and plin
+    if (!['TRANSFER', 'YAPE', 'PLIN'].includes(checkoutData.paymentMethod)) {
+      return null
+    }
+
+    return (
+      <VoucherUpload>
+        <div className="voucher-label">
+          <Upload size={16} />
+          Comprobante de pago (opcional)
+        </div>
+        
+        {!voucherFile ? (
+          <>
+            <div 
+              className="upload-area"
+              onClick={() => document.getElementById('voucher-input').click()}
+            >
+              <div className="upload-content">
+                <Upload size={40} />
+                <p>Haz clic para subir tu comprobante de pago</p>
+                <p className="file-types">Formatos: JPG, PNG, GIF (máx. 2MB)</p>
+              </div>
+            </div>
+            <input
+              id="voucher-input"
+              type="file"
+              accept=".jpg,.jpeg,.png,.gif"
+              onChange={handleVoucherUpload}
+              style={{ display: 'none' }}
+            />
+          </>
+        ) : (
+          <div className="voucher-preview">
+            <div className="preview-header">
+              <span>Comprobante adjuntado</span>
+              <button type="button" onClick={removeVoucher}>
+                <X size={16} />
+              </button>
+            </div>
+            <div className="preview-content">
+              {voucherPreview && <img src={voucherPreview} alt="Preview" />}
+              <div className="file-info">
+                <div className="file-name">{voucherFile.name}</div>
+                <div className="file-size">{formatFileSize(voucherFile.size)}</div>
+              </div>
+            </div>
+          </div>
+        )
+      }
+      </VoucherUpload>
+    )
+  }
   //               <>
   //                 <div className="file-icon">
   //                   <FileText size={24} />
@@ -2384,19 +2440,50 @@ function ClientStore({
                       <CartItemControls>
                         <QuantityControl>
                           <button 
-                            onClick={() => updateCartQuantity(index, item.quantity - 0.1)}
+                            onClick={() => {
+                              const unitConfig = getUnitConfig(item.unit)
+                              const newQuantity = Math.max(
+                                unitConfig.minQuantity, 
+                                item.quantity - unitConfig.step
+                              )
+                              updateCartQuantity(index, newQuantity)
+                            }}
+                            disabled={(() => {
+                              const unitConfig = getUnitConfig(item.unit)
+                              return item.quantity <= unitConfig.minQuantity
+                            })()}
                           >
                             <Minus size={14} />
                           </button>
                           <input
                             type="number"
-                            value={item.quantity}
-                            onChange={(e) => updateCartQuantity(index, parseFloat(e.target.value) || 0.1)}
-                            min="0.1"
-                            step="0.1"
+                            value={(() => {
+                              const unitConfig = getUnitConfig(item.unit)
+                              return unitConfig.allowDecimals 
+                                ? parseFloat(item.quantity).toFixed(unitConfig.displayDecimals)
+                                : Math.floor(item.quantity)
+                            })()}
+                            onChange={(e) => {
+                              const unitConfig = getUnitConfig(item.unit)
+                              const newValue = parseFloat(e.target.value) || unitConfig.minQuantity
+                              const validQuantity = Math.max(unitConfig.minQuantity, newValue)
+                              updateCartQuantity(index, validQuantity)
+                            }}
+                            min={(() => {
+                              const unitConfig = getUnitConfig(item.unit)
+                              return unitConfig.minQuantity
+                            })()}
+                            step={(() => {
+                              const unitConfig = getUnitConfig(item.unit)
+                              return unitConfig.step
+                            })()}
                           />
                           <button 
-                            onClick={() => updateCartQuantity(index, item.quantity + 0.1)}
+                            onClick={() => {
+                              const unitConfig = getUnitConfig(item.unit)
+                              const newQuantity = item.quantity + unitConfig.step
+                              updateCartQuantity(index, newQuantity)
+                            }}
                           >
                             <Plus size={14} />
                           </button>
@@ -2629,35 +2716,38 @@ function ClientStore({
                 <label>Método de pago</label>
                 <PaymentMethods>
                   <PaymentMethod 
-                    $active={checkoutData.paymentMethod === 'transfer'}
-                    onClick={() => handleInputChange('paymentMethod', 'transfer')}
+                    $active={checkoutData.paymentMethod === 'TRANSFER'}
+                    onClick={() => handleInputChange('paymentMethod', 'TRANSFER')}
                   >
                     <CreditCard size={20} />
                     <span>Transferencia</span>
                   </PaymentMethod>
                   <PaymentMethod 
-                    $active={checkoutData.paymentMethod === 'yape'}
-                    onClick={() => handleInputChange('paymentMethod', 'yape')}
+                    $active={checkoutData.paymentMethod === 'YAPE'}
+                    onClick={() => handleInputChange('paymentMethod', 'YAPE')}
                   >
                     <Smartphone size={20} />
                     <span>Yape</span>
                   </PaymentMethod>
                   <PaymentMethod 
-                    $active={checkoutData.paymentMethod === 'plin'}
-                    onClick={() => handleInputChange('paymentMethod', 'plin')}
+                    $active={checkoutData.paymentMethod === 'PLIN'}
+                    onClick={() => handleInputChange('paymentMethod', 'PLIN')}
                   >
                     <Smartphone size={20} />
                     <span>Plin</span>
                   </PaymentMethod>
                   <PaymentMethod 
-                    $active={checkoutData.paymentMethod === 'cash'}
-                    onClick={() => handleInputChange('paymentMethod', 'cash')}
+                    $active={checkoutData.paymentMethod === 'CASH'}
+                    onClick={() => handleInputChange('paymentMethod', 'CASH')}
                   >
                     <DollarSign size={20} />
                     <span>Contraentrega</span>
                   </PaymentMethod>
                 </PaymentMethods>
                 {renderPaymentDetails()}
+                
+                {/* Subir comprobante de pago - aparece después de detalles de pago */}
+                {renderVoucherUpload()}
               </FormGroup>
               
               <FormGroup>
@@ -2668,9 +2758,6 @@ function ClientStore({
                   placeholder="Instrucciones especiales para la entrega..."
                 />
               </FormGroup>
-              
-              {/* VOUCHER: Temporalmente deshabilitado */}
-              {/* {renderVoucherUpload()} */}
               
               <button 
                 type="submit" 
@@ -2708,9 +2795,9 @@ function ClientStore({
                   <p><strong>Teléfono:</strong> {confirmedOrder.phone}</p>
                   <p><strong>Dirección:</strong> {confirmedOrder.address}</p>
                   <p><strong>Método de pago:</strong> {
-                    confirmedOrder.payment_method === 'transfer' ? 'Transferencia' :
-                    confirmedOrder.payment_method === 'yape' ? 'Yape' :
-                    confirmedOrder.payment_method === 'plin' ? 'Plin' :
+                    confirmedOrder.payment_method === 'TRANSFER' ? 'Transferencia' :
+                    confirmedOrder.payment_method === 'YAPE' ? 'Yape' :
+                    confirmedOrder.payment_method === 'PLIN' ? 'Plin' :
                     'Contraentrega'
                   }</p>
                   <p><strong>Total:</strong> S/ {formatPrice(confirmedOrder.total)}</p>

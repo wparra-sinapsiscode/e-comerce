@@ -30,6 +30,7 @@ function App() {
   const loadAppData = async (user = null) => {
     try {
       console.log('📦 APP: Iniciando carga de datos...')
+      console.log('📦 APP: Called from:', new Error().stack.split('\n')[2].trim())
       const authenticatedUser = user || currentUser
       console.log('📦 APP: Usuario para cargar datos:', authenticatedUser)
       
@@ -164,6 +165,10 @@ function App() {
       if (response.success) {
         setCurrentUser(response.data.user)
         showToast('Registro exitoso. ¡Bienvenido!', 'success')
+        
+        // Cargar datos de la aplicación después del registro exitoso
+        await loadAppData(response.data.user)
+        
         return response.data.user
       } else {
         showToast(response.error?.message || 'Error en el registro', 'error')

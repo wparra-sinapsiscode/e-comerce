@@ -314,10 +314,10 @@ class PaymentService {
           .filter(p => p.status === 'pending')
           .reduce((sum, p) => sum + p.amount, 0),
         by_method: {
-          transfer: mockPayments.filter(p => p.method === 'transfer').length,
-          yape: mockPayments.filter(p => p.method === 'yape').length,
-          plin: mockPayments.filter(p => p.method === 'plin').length,
-          cash: mockPayments.filter(p => p.method === 'cash').length,
+          TRANSFER: mockPayments.filter(p => p.method === 'TRANSFER').length,
+          YAPE: mockPayments.filter(p => p.method === 'YAPE').length,
+          PLIN: mockPayments.filter(p => p.method === 'PLIN').length,
+          CASH: mockPayments.filter(p => p.method === 'CASH').length,
         }
       }
       

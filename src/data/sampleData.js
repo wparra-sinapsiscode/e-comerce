@@ -420,7 +420,7 @@ export const initialOrders = [
     address: 'Av. Principal 123, Lima',
     date: '2023-10-15',
     status: 'delivered',
-    payment_method: 'transfer',
+    payment_method: 'TRANSFER',
     payment_status: 'verified',
     items: [
       { product_id: 1, name: 'Manzana Deliciosa', quantity: 2, price: 5.90, total: 11.80 },
@@ -439,7 +439,7 @@ export const initialOrders = [
     address: 'Jr. Los Pinos 456, Lima',
     date: '2023-10-16',
     status: 'preparing',
-    payment_method: 'yape',
+    payment_method: 'YAPE',
     payment_status: 'verified',
     items: [
       { product_id: 2, name: 'Plátano Orgánico', quantity: 3, price: 4.50, total: 13.50 },
@@ -458,7 +458,7 @@ export const initialOrders = [
     address: 'Calle Las Flores 789, Lima',
     date: '2023-10-17',
     status: 'awaiting_payment',
-    payment_method: 'transfer',
+    payment_method: 'TRANSFER',
     payment_status: 'pending',
     items: [
       { product_id: 3, name: 'Naranja Valenciana', quantity: 2, price: 3.80, total: 7.60 },
@@ -480,7 +480,7 @@ export const initialPayments = [
     customer: 'Juan Pérez',
     date: '2023-10-15',
     amount: 27.44,
-    method: 'transfer',
+    method: 'TRANSFER',
     status: 'verified',
     voucher: 'https://images.unsplash.com/photo-1622186477895-f2af6a0f5522'
   },
@@ -490,7 +490,7 @@ export const initialPayments = [
     customer: 'María López',
     date: '2023-10-16',
     amount: 61.18,
-    method: 'yape',
+    method: 'YAPE',
     status: 'verified',
     voucher: 'https://images.unsplash.com/photo-1622186477895-f2af6a0f5522'
   },
@@ -500,7 +500,7 @@ export const initialPayments = [
     customer: 'Pedro Sánchez',
     date: '2023-10-17',
     amount: 34.57,
-    method: 'transfer',
+    method: 'TRANSFER',
     status: 'pending',
     voucher: 'https://images.unsplash.com/photo-1622186477895-f2af6a0f5522'
   }
