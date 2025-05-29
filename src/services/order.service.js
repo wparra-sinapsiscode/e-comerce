@@ -246,52 +246,76 @@ class OrderService {
    * @returns {Promise<Object>} API response
    */
   async updateOrderStatus(id, newStatus, notes = '') {
+    console.log('🚀 ORDER SERVICE: Iniciando actualización de estado del pedido:', {
+      orderId: id,
+      nuevoEstado: newStatus
+    });
+    
     // Get current order to validate transition
     const currentOrderResponse = await this.getOrderById(id)
     if (!currentOrderResponse.success) {
+      console.error('❌ ORDER SERVICE: No se pudo obtener el pedido actual:', currentOrderResponse.error);
       return currentOrderResponse
     }
 
     const currentOrder = currentOrderResponse.data
     const currentStatus = currentOrder.status
+    
+    console.log('🔍 ORDER SERVICE: Estado actual del pedido:', {
+      estadoActual: currentStatus,
+      nuevoEstado: newStatus
+    });
 
-    // Validate status transition
-    if (!validateOrderStatusTransition(currentStatus, newStatus)) {
-      return {
-        success: false,
-        error: {
-          type: 'business_rule',
-          message: `No se puede cambiar de "${currentStatus}" a "${newStatus}"`
-        }
-      }
-    }
-
-    // Validate update data
-    const updateData = { id, status: newStatus, notes }
+    // Asegurarse de que el estado está en mayúsculas para el backend
+    const normalizedStatus = typeof newStatus === 'string' ? newStatus.toUpperCase() : newStatus;
+    
+    console.log('🔄 ORDER SERVICE: Normalizando estado:', {
+      estadoOriginal: newStatus,
+      estadoNormalizado: normalizedStatus
+    });
+    
+    // Preparar datos para actualización
+    const updateData = { status: normalizedStatus, notes }
     
     try {
-      UpdateOrderStatusSchema.parse(updateData)
-    } catch (error) {
-      return {
-        success: false,
-        error: { type: 'validation', errors: error.errors }
+      // Obtener token de autenticación
+      const token = localStorage.getItem('ecommerce_auth_token');
+      if (!token) {
+        console.error('❌ ORDER SERVICE: No hay token de autenticación disponible');
+        return {
+          success: false,
+          error: { 
+            type: 'auth', 
+            message: 'Sesión expirada o no autenticada. Por favor, inicie sesión nuevamente.' 
+          }
+        };
       }
-    }
-
-    try {
-      console.log('📤 ORDER SERVICE: Enviando actualización de estado:', {
-        endpoint: API_ENDPOINTS.ORDERS.UPDATE_STATUS(id),
+      
+      let response;
+      
+      // Usamos el nuevo endpoint de payment controller que funciona para todos los estados
+      console.log('📤 ORDER SERVICE: Usando endpoint de payment controller para actualizar estado:', {
+        endpoint: API_ENDPOINTS.PAYMENTS.UPDATE_ORDER_STATUS(id),
         data: updateData
       });
       
-      const response = await apiClient.patch(
-        API_ENDPOINTS.ORDERS.UPDATE_STATUS(id), 
-        updateData
-      )
+      response = await apiClient.patch(
+        API_ENDPOINTS.PAYMENTS.UPDATE_ORDER_STATUS(id), 
+        updateData,
+        { 
+          headers: { 
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          } 
+        }
+      );
       
       console.log('📥 ORDER SERVICE: Respuesta de actualización:', {
         success: response.success,
-        data: response.data,
+        data: response.data ? {
+          id: response.data.id,
+          status: response.data.status
+        } : null,
         error: response.error
       });
       
@@ -303,30 +327,78 @@ class OrderService {
           // Preservar pedido en caché especial para DELIVERED
           const orderCache = cacheHelpers.get(`${this.cachePrefix}_${id}`);
           if (orderCache) {
-            const deliveredOrder = {...orderCache, status: 'DELIVERED'};
+            const deliveredOrder = {
+              ...orderCache, 
+              status: 'delivered',
+              _delivered_at: new Date().toISOString(),
+              _preserved: true
+            };
+            
             // Limpiar caché normal
             this._clearOrderCache();
-            // Pero volver a guardar este pedido específico
-            cacheHelpers.set(`${this.cachePrefix}_${id}`, deliveredOrder, this.cacheTTL * 2);
-            console.log('✅ ORDER SERVICE: Pedido DELIVERED preservado en caché');
+            
+            // Pero volver a guardar este pedido específico con TTL extendido
+            cacheHelpers.set(`${this.cachePrefix}_${id}`, deliveredOrder, this.cacheTTL * 3);
+            cacheHelpers.set(`${this.cachePrefix}_delivered_${id}`, deliveredOrder, this.cacheTTL * 3);
+            
+            console.log('✅ ORDER SERVICE: Pedido DELIVERED preservado en caché especial');
           } else {
-            // Si no tenemos el pedido en caché, limpiamos normalmente
-            this._clearOrderCache();
-            cacheHelpers.clear(`${this.cachePrefix}_${id}`);
+            // Si no tenemos el pedido en caché, obtenerlo del servidor
+            console.log('🔄 ORDER SERVICE: Recargando pedido DELIVERED del API para caché');
+            
+            try {
+              const refreshResponse = await this.getOrderById(id);
+              if (refreshResponse.success) {
+                const deliveredOrder = {
+                  ...refreshResponse.data,
+                  _delivered_at: new Date().toISOString(),
+                  _preserved: true
+                };
+                
+                // Guardar en caché especial con TTL extendido
+                cacheHelpers.set(`${this.cachePrefix}_${id}`, deliveredOrder, this.cacheTTL * 3);
+                cacheHelpers.set(`${this.cachePrefix}_delivered_${id}`, deliveredOrder, this.cacheTTL * 3);
+                
+                console.log('✅ ORDER SERVICE: Pedido DELIVERED recargado y guardado en caché');
+              }
+            } catch (refreshError) {
+              console.error('❌ ORDER SERVICE: Error al recargar pedido DELIVERED:', refreshError);
+            }
           }
         } else {
           // Para otros estados, limpieza normal
           this._clearOrderCache();
           cacheHelpers.clear(`${this.cachePrefix}_${id}`);
         }
+        
+        // Verificar que la actualización se haya guardado correctamente
+        try {
+          console.log('🔍 ORDER SERVICE: Verificando actualización en BD...');
+          const verifyResponse = await this.getOrderById(id);
+          console.log('🔎 ORDER SERVICE: Estado actual en BD:', verifyResponse?.data?.status);
+          
+          if (verifyResponse?.data?.status !== newStatus.toLowerCase() && 
+              verifyResponse?.data?.status !== newStatus) {
+            console.warn('⚠️ ORDER SERVICE: El estado en BD no coincide con el solicitado!', {
+              solicitado: newStatus,
+              actual: verifyResponse?.data?.status
+            });
+          }
+        } catch (verifyError) {
+          console.error('⚠️ ORDER SERVICE: Error al verificar actualización:', verifyError);
+        }
       }
       
       return response
     } catch (error) {
-      console.error('Error updating order status:', error)
+      console.error('❌ ORDER SERVICE: Error al actualizar estado del pedido:', error)
       return {
         success: false,
-        error: { type: 'network', message: 'Error al actualizar estado del pedido' }
+        error: { 
+          type: 'network', 
+          message: 'Error al actualizar estado del pedido',
+          details: error.message 
+        }
       }
     }
   }

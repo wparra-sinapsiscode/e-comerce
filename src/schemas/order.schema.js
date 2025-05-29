@@ -219,8 +219,31 @@ export const validateCreateOrder = (data) => {
 }
 
 export const validateOrderStatusTransition = (currentStatus, newStatus) => {
-  const allowedTransitions = ORDER_STATUS_FLOW[currentStatus] || []
-  return allowedTransitions.includes(newStatus)
+  // Normalizar estados para comparación (tolerar mayúsculas/minúsculas)
+  const normalizedCurrent = typeof currentStatus === 'string' ? currentStatus.toLowerCase() : '';
+  const normalizedNew = typeof newStatus === 'string' ? newStatus.toLowerCase() : '';
+  
+  console.log('🔄 VALIDACIÓN DE TRANSICIÓN DE ESTADO:', {
+    estadoActual: normalizedCurrent,
+    nuevoEstado: normalizedNew
+  });
+  
+  // Si son el mismo estado (ignorando case), permitir
+  if (normalizedCurrent === normalizedNew) {
+    console.log('✅ Transición permitida: Mismo estado (case-insensitive)');
+    return true;
+  }
+  
+  // Buscar transiciones permitidas
+  const allowedTransitions = ORDER_STATUS_FLOW[normalizedCurrent] || [];
+  
+  // Verificar si la transición está permitida
+  const isAllowed = allowedTransitions.includes(normalizedNew);
+  
+  console.log('🔍 Transiciones permitidas para', normalizedCurrent, ':', allowedTransitions);
+  console.log('🔍 ¿Transición permitida?', isAllowed ? '✅ SÍ' : '❌ NO');
+  
+  return isAllowed;
 }
 
 // Calculation helpers

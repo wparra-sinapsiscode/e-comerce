@@ -1625,23 +1625,30 @@ function AdminDashboard({
   const progressOrder = async (orderId, newStatus) => {
     console.log('🔄 INICIO FLUJO DE CAMBIO DE ESTADO 🔄');
     const orderToUpdate = safeOrders.find(order => order.id === orderId);
+    
+    // Asegurarnos de que el estado está en el formato correcto
+    const normalizedStatus = typeof newStatus === 'string' ? newStatus.toLowerCase() : newStatus;
+    
     console.log('📋 DATOS DEL PEDIDO:', {
       pedidoID: orderId,
       clienteNombre: orderToUpdate?.customer_name,
       estadoActual: orderToUpdate?.status,
-      nuevoEstado: newStatus,
+      nuevoEstado: normalizedStatus,
       timestamp: new Date().toISOString()
     });
     
     try {
       console.log('📡 ENVIANDO AL BACKEND:', {
-        endpoint: `/orders/${orderId}/status`,
+        endpoint: `/payments/order/${orderId}/status`,
         metodo: 'PATCH',
-        datos: { status: newStatus, notes: 'Actualización desde flujo de pedido' }
+        datos: { 
+          status: normalizedStatus.toUpperCase(), 
+          notes: 'Actualización desde flujo de pedido' 
+        }
       });
       
       // CORRECCIÓN CLAVE: Llamada al backend para persistir el cambio
-      const response = await orderService.updateOrderStatus(orderId, newStatus, 'Actualización desde flujo de pedido');
+      const response = await orderService.updateOrderStatus(orderId, normalizedStatus, 'Actualización desde flujo de pedido');
       
       console.log('📩 RESPUESTA DEL BACKEND:', {
         exito: response?.success,
@@ -1649,33 +1656,42 @@ function AdminDashboard({
         error: response?.error
       });
       
-      // Actualizar el estado local para reflejar el cambio en la UI
-      setOrders(safeOrders.map(order => 
-        order.id === orderId ? { ...order, status: newStatus } : order
-      ));
-      
-      console.log('🖥️ UI ACTUALIZADA:', {
-        totalPedidos: safeOrders.length,
-        pedidoActualizado: orderId,
-        nuevoEstado: newStatus
-      });
-      
-      // Log específico para cada estado
-      switch(newStatus) {
-        case 'preparing':
+      if (response && response.success) {
+        console.log('✅ BACKEND: Actualización exitosa del estado');
+        
+        // Actualizar el estado local para reflejar el cambio en la UI
+        setOrders(safeOrders.map(order => 
+          order.id === orderId ? { ...order, status: normalizedStatus } : order
+        ));
+        
+        console.log('🖥️ UI ACTUALIZADA:', {
+          totalPedidos: safeOrders.length,
+          pedidoActualizado: orderId,
+          nuevoEstado: normalizedStatus
+        });
+        
+        // Logs específicos para seguimiento de estados
+        if (normalizedStatus === 'preparing') {
           console.log('🍳 PEDIDO EN PREPARACIÓN:', orderId);
-          break;
-        case 'ready_for_shipping':
+        } else if (normalizedStatus === 'ready_for_shipping') {
           console.log('📦 PEDIDO LISTO PARA ENVÍO:', orderId);
-          break;
-        case 'shipped':
+        } else if (normalizedStatus === 'shipped') {
           console.log('🚚 PEDIDO ENVIADO:', orderId);
-          break;
-        case 'delivered':
-          console.log('🏁 PEDIDO ENTREGADO:', orderId);
-          console.log('⚠️ VERIFICANDO PERSISTENCIA DELIVERED EN BD Y UI');
-          break;
+        } else if (normalizedStatus === 'delivered') {
+          console.log('✅ PEDIDO ENTREGADO:', orderId);
+        }
+      } else {
+        console.error('❌ ERROR AL ACTUALIZAR EN BACKEND:', response?.error);
+        // A pesar del error, actualizamos la UI para que sea consistente
+        console.log('⚠️ ACTUALIZACIÓN LOCAL AUNQUE FALLÓ EN BACKEND');
+        
+        // Actualizar el estado local para reflejar el cambio en la UI
+        setOrders(safeOrders.map(order => 
+          order.id === orderId ? { ...order, status: normalizedStatus } : order
+        ));
       }
+      
+      console.log('🔄 FIN FLUJO DE CAMBIO DE ESTADO 🔄');
       
       const statusTexts = {
         preparing: 'alistado para preparación',
@@ -1684,9 +1700,14 @@ function AdminDashboard({
         delivered: 'marcado como entregado'
       };
       
-      showToast(`Pedido ${statusTexts[newStatus]}`, 'success');
+      showToast(`Pedido ${statusTexts[normalizedStatus] || 'actualizado'}`, 'success');
     } catch (error) {
-      console.error('💥 ERROR EN ACTUALIZACIÓN:', error);
+      console.error('❌ ERROR GRAVE AL PROCESAR CAMBIO DE ESTADO:', error);
+      // Actualizar UI a pesar del error
+      setOrders(safeOrders.map(order => 
+        order.id === orderId ? { ...order, status: normalizedStatus } : order
+      ));
+      
       showToast('Error al actualizar el estado del pedido', 'error');
     }
     

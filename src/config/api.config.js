@@ -80,6 +80,7 @@ export const API_ENDPOINTS = {
     VERIFY: (id) => `/payments/${id}/verify`,
     CONFIRM: (id) => `/payments/${id}/confirm`,
     UPLOAD_VOUCHER: (id) => `/payments/${id}/voucher`,
+    UPDATE_ORDER_STATUS: (orderId) => `/payments/order/${orderId}/status`,
   },
 
   // Admin endpoints
