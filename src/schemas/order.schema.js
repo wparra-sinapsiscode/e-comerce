@@ -20,9 +20,9 @@ export const PaymentMethodSchema = z.enum([
 
 // Payment status enum
 export const PaymentStatusSchema = z.enum([
-  'pending',
-  'verified',
-  'rejected'
+  'PENDING',
+  'VERIFIED',
+  'REJECTED'
 ])
 
 // Order item schema

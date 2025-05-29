@@ -34,7 +34,7 @@ export const CreatePaymentSchema = z.object({
 // Payment verification schema
 export const VerifyPaymentSchema = z.object({
   id: z.string().min(1),
-  status: z.enum(['verified', 'rejected']),
+  status: z.enum(['VERIFIED', 'REJECTED']),
   verification_notes: z.string().max(300).optional(),
   rejected_reason: z.string().max(200).optional(),
 })

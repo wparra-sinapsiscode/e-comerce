@@ -421,7 +421,7 @@ export const initialOrders = [
     date: '2023-10-15',
     status: 'delivered',
     payment_method: 'TRANSFER',
-    payment_status: 'verified',
+    payment_status: 'VERIFIED',
     items: [
       { product_id: 1, name: 'Manzana Deliciosa', quantity: 2, price: 5.90, total: 11.80 },
       { product_id: 5, name: 'Lechuga Hidropónica', quantity: 1, price: 3.50, total: 3.50 },
@@ -440,7 +440,7 @@ export const initialOrders = [
     date: '2023-10-16',
     status: 'preparing',
     payment_method: 'YAPE',
-    payment_status: 'verified',
+    payment_status: 'VERIFIED',
     items: [
       { product_id: 2, name: 'Plátano Orgánico', quantity: 3, price: 4.50, total: 13.50 },
       { product_id: 10, name: 'Yogurt Natural', quantity: 2, price: 6.50, total: 13.00 },
@@ -459,7 +459,7 @@ export const initialOrders = [
     date: '2023-10-17',
     status: 'awaiting_payment',
     payment_method: 'TRANSFER',
-    payment_status: 'pending',
+    payment_status: 'PENDING',
     items: [
       { product_id: 3, name: 'Naranja Valenciana', quantity: 2, price: 3.80, total: 7.60 },
       { product_id: 7, name: 'Cebolla Roja', quantity: 1, price: 2.80, total: 2.80 },
@@ -481,7 +481,7 @@ export const initialPayments = [
     date: '2023-10-15',
     amount: 27.44,
     method: 'TRANSFER',
-    status: 'verified',
+    status: 'VERIFIED',
     voucher: 'https://images.unsplash.com/photo-1622186477895-f2af6a0f5522'
   },
   {
@@ -491,7 +491,7 @@ export const initialPayments = [
     date: '2023-10-16',
     amount: 61.18,
     method: 'YAPE',
-    status: 'verified',
+    status: 'VERIFIED',
     voucher: 'https://images.unsplash.com/photo-1622186477895-f2af6a0f5522'
   },
   {
@@ -501,7 +501,7 @@ export const initialPayments = [
     date: '2023-10-17',
     amount: 34.57,
     method: 'TRANSFER',
-    status: 'pending',
+    status: 'PENDING',
     voucher: 'https://images.unsplash.com/photo-1622186477895-f2af6a0f5522'
   }
 ];

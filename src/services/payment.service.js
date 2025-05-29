@@ -171,7 +171,7 @@ class PaymentService {
       id,
       status,
       verification_notes: notes,
-      rejected_reason: status === 'rejected' ? rejectedReason : undefined
+      rejected_reason: status === 'REJECTED' ? rejectedReason : undefined
     }
 
     // Validate verification data
@@ -303,15 +303,15 @@ class PaymentService {
       // Mock statistics
       const stats = {
         total_payments: mockPayments.length,
-        pending_payments: mockPayments.filter(p => p.status === 'pending').length,
-        verified_payments: mockPayments.filter(p => p.status === 'verified').length,
-        rejected_payments: mockPayments.filter(p => p.status === 'rejected').length,
+        pending_payments: mockPayments.filter(p => p.status === 'PENDING').length,
+        verified_payments: mockPayments.filter(p => p.status === 'VERIFIED').length,
+        rejected_payments: mockPayments.filter(p => p.status === 'REJECTED').length,
         total_amount: mockPayments.reduce((sum, p) => sum + p.amount, 0),
         verified_amount: mockPayments
-          .filter(p => p.status === 'verified')
+          .filter(p => p.status === 'VERIFIED')
           .reduce((sum, p) => sum + p.amount, 0),
         pending_amount: mockPayments
-          .filter(p => p.status === 'pending')
+          .filter(p => p.status === 'PENDING')
           .reduce((sum, p) => sum + p.amount, 0),
         by_method: {
           TRANSFER: mockPayments.filter(p => p.method === 'TRANSFER').length,
