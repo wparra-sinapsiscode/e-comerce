@@ -2875,7 +2875,7 @@ function AdminDashboard({
       setStatusConfirmData(null);
       
       // Log especial para delivered
-      if (statusConfirmData.newStatus === 'delivered') {
+      if (statusConfirmData.newStatus === 'delivered' || statusConfirmData.newStatus === 'DELIVERED') {
         console.log('✅ CONFIRMACIÓN FINAL: Pedido marcado como ENTREGADO (DELIVERED)');
         console.log('📊 ESTADO FINAL: Pedido debe permanecer visible en el dashboard');
       }
