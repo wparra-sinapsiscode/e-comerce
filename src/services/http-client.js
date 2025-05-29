@@ -8,6 +8,7 @@ import {
   REFRESH_TOKEN_KEY,
   FEATURE_FLAGS 
 } from '../config/api.config.js'
+import { storageService } from './storage.service.js'
 
 /**
  * HTTP Client with interceptors for API communication
@@ -27,8 +28,8 @@ console.log('🌐 API BASE URL:', API_ENDPOINTS.API_BASE)
 httpClient.interceptors.request.use(
   (config) => {
     // Add auth token if available
-    const token = localStorage.getItem(AUTH_TOKEN_KEY)
-    console.log('🔐 Token from localStorage:', token ? `Found (${token.substring(0, 20)}...)` : 'Not found')
+    const token = storageService.get(AUTH_TOKEN_KEY)
+    console.log('🔐 Token from sessionStorage:', token ? `Found (${token.substring(0, 20)}...)` : 'Not found')
     console.log('🔐 AUTH_TOKEN_KEY:', AUTH_TOKEN_KEY)
     
     if (token) {
@@ -83,14 +84,14 @@ httpClient.interceptors.response.use(
       originalRequest._retry = true
       
       try {
-        const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY)
+        const refreshToken = storageService.get(REFRESH_TOKEN_KEY)
         if (refreshToken) {
           const response = await axios.post(`${API_ENDPOINTS.API_BASE}${API_ENDPOINTS.AUTH.REFRESH}`, {
             refresh_token: refreshToken
           })
           
           const { access_token } = response.data
-          localStorage.setItem(AUTH_TOKEN_KEY, access_token)
+          storageService.set(AUTH_TOKEN_KEY, access_token)
           
           // Retry original request with new token
           originalRequest.headers.Authorization = `Bearer ${access_token}`
@@ -98,8 +99,8 @@ httpClient.interceptors.response.use(
         }
       } catch (refreshError) {
         // Refresh failed, redirect to login
-        localStorage.removeItem(AUTH_TOKEN_KEY)
-        localStorage.removeItem(REFRESH_TOKEN_KEY)
+        storageService.remove(AUTH_TOKEN_KEY)
+        storageService.remove(REFRESH_TOKEN_KEY)
         // COMENTADO: Evitar redirección automática durante inicialización
         // window.location.href = '/login'
         console.log('🔐 Refresh token failed, but not redirecting during initialization')
@@ -325,23 +326,23 @@ export const apiClient = {
 // Authentication helpers
 export const authHelpers = {
   setToken: (token, refreshToken = null) => {
-    localStorage.setItem(AUTH_TOKEN_KEY, token)
+    storageService.set(AUTH_TOKEN_KEY, token)
     if (refreshToken) {
-      localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken)
+      storageService.set(REFRESH_TOKEN_KEY, refreshToken)
     }
   },
   
   getToken: () => {
-    return localStorage.getItem(AUTH_TOKEN_KEY)
+    return storageService.get(AUTH_TOKEN_KEY)
   },
   
   clearToken: () => {
-    localStorage.removeItem(AUTH_TOKEN_KEY)
-    localStorage.removeItem(REFRESH_TOKEN_KEY)
+    storageService.remove(AUTH_TOKEN_KEY)
+    storageService.remove(REFRESH_TOKEN_KEY)
   },
   
   isAuthenticated: () => {
-    const token = localStorage.getItem(AUTH_TOKEN_KEY)
+    const token = storageService.get(AUTH_TOKEN_KEY)
     return !!token && !isTokenExpired(token)
   },
 }

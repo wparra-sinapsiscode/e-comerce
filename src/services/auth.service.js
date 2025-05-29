@@ -1,5 +1,6 @@
 import { apiClient, authHelpers } from './http-client.js'
 import { API_ENDPOINTS, FEATURE_FLAGS, AUTH_TOKEN_KEY, USER_DATA_KEY } from '../config/api.config.js'
+import { storageService } from './storage.service.js'
 import { 
   validateLogin, 
   validateRegister, 
@@ -41,7 +42,7 @@ class AuthService {
         const response = await apiClient.get(API_ENDPOINTS.AUTH.PROFILE)
         if (response.success && response.data.user) {
           this.currentUser = response.data.user
-          localStorage.setItem(USER_DATA_KEY, JSON.stringify(this.currentUser))
+          storageService.set(USER_DATA_KEY, this.currentUser)
         } else {
           // Token is invalid, clear it
           // COMENTADO: Evitar logout automático durante inicialización
@@ -90,7 +91,7 @@ class AuthService {
         if (user && typeof user === 'object') {
           authHelpers.setToken(access_token, refresh_token)
           this.currentUser = user
-          localStorage.setItem(USER_DATA_KEY, JSON.stringify(user))
+          storageService.set(USER_DATA_KEY, user)
         } else {
           throw new Error('Invalid user data received from server')
         }
@@ -149,7 +150,7 @@ class AuthService {
         if (user && typeof user === 'object') {
           authHelpers.setToken(access_token, refresh_token)
           this.currentUser = user
-          localStorage.setItem(USER_DATA_KEY, JSON.stringify(user))
+          storageService.set(USER_DATA_KEY, user)
         } else {
           throw new Error('Invalid user data received from server')
         }
@@ -210,8 +211,8 @@ class AuthService {
         
         if (access_token && user) {
           console.log('🔵 GUARDANDO TOKEN Y USUARIO:', { token: access_token.substring(0, 20) + '...', user: user.email })
-          localStorage.setItem(AUTH_TOKEN_KEY, access_token)
-          localStorage.setItem(USER_DATA_KEY, JSON.stringify(user))
+          storageService.set(AUTH_TOKEN_KEY, access_token)
+          storageService.set(USER_DATA_KEY, user)
           this.currentUser = user
           
           return {
@@ -265,8 +266,8 @@ class AuthService {
         const { session_token, guest_data } = response.data
         
         // Store minimal session data
-        localStorage.setItem('guest_session', session_token)
-        localStorage.setItem('guest_data', JSON.stringify(guest_data))
+        storageService.set('guest_session', session_token)
+        storageService.set('guest_data', guest_data)
         
         return {
           success: true,
@@ -305,9 +306,9 @@ class AuthService {
     } finally {
       // Clear local session data
       authHelpers.clearToken()
-      localStorage.removeItem(USER_DATA_KEY)
-      localStorage.removeItem('guest_session')
-      localStorage.removeItem('guest_data')
+      storageService.remove(USER_DATA_KEY)
+      storageService.remove('guest_session')
+      storageService.remove('guest_data')
       this.currentUser = null
     }
   }
@@ -321,25 +322,18 @@ class AuthService {
       return this.currentUser
     }
 
-    // Try to get from localStorage
-    const userData = localStorage.getItem(USER_DATA_KEY)
+    // Try to get from sessionStorage
+    const userData = storageService.get(USER_DATA_KEY)
     
     // Debug logs para identificar el problema
-    console.log('LocalStorage auth_token:', localStorage.getItem(AUTH_TOKEN_KEY))
-    console.log('LocalStorage user_data:', userData)
-    console.log('LocalStorage user_data type:', typeof userData)
+    console.log('SessionStorage auth_token:', storageService.get(AUTH_TOKEN_KEY))
+    console.log('SessionStorage user_data:', userData)
+    console.log('SessionStorage user_data type:', typeof userData)
     
-    // Verificar que userData no sea null, undefined, o la string "undefined"
-    if (userData && userData !== 'undefined' && userData !== 'null') {
-      try {
-        this.currentUser = JSON.parse(userData)
-        return this.currentUser
-      } catch (error) {
-        console.error('Error parsing user data:', error)
-        // Limpiar datos corruptos
-        localStorage.removeItem(USER_DATA_KEY)
-        this.currentUser = null
-      }
+    // Verificar que userData no sea null, undefined
+    if (userData) {
+      this.currentUser = userData
+      return this.currentUser
     }
 
     return null
@@ -393,7 +387,7 @@ class AuthService {
       if (response.success) {
         // Update local user data
         this.currentUser = { ...this.currentUser, ...response.data.user }
-        localStorage.setItem(USER_DATA_KEY, JSON.stringify(this.currentUser))
+        storageService.set(USER_DATA_KEY, this.currentUser)
       }
       
       return response
@@ -474,7 +468,7 @@ class AuthService {
    * @returns {Promise<Object>} API response with new token
    */
   async refreshToken() {
-    const refreshToken = localStorage.getItem('refresh_token')
+    const refreshToken = storageService.get(REFRESH_TOKEN_KEY)
     if (!refreshToken) {
       this.logout()
       return {
@@ -551,7 +545,7 @@ class AuthService {
     
     authHelpers.setToken(mockToken)
     this.currentUser = mockUser
-    localStorage.setItem(USER_DATA_KEY, JSON.stringify(mockUser))
+    storageService.set(USER_DATA_KEY, mockUser)
     
     return {
       success: true,

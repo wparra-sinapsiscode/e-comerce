@@ -1,5 +1,6 @@
 import { apiClient, cacheHelpers } from './http-client.js'
 import { API_ENDPOINTS, CACHE_CONFIG, FEATURE_FLAGS } from '../config/api.config.js'
+import { storageService } from './storage.service.js'
 import { 
   validateOrder, 
   validateCreateOrder, 
@@ -50,7 +51,7 @@ class OrderService {
       if (response.success) {
         // Verificar si hay pedidos DELIVERED que deberíamos preservar
         try {
-          const deliveredOrderIds = JSON.parse(localStorage.getItem('deliveredOrders') || '[]');
+          const deliveredOrderIds = storageService.get('deliveredOrders') || [];
           
           if (deliveredOrderIds.length > 0) {
             console.log('🔍 order.service: Verificando si hay pedidos DELIVERED que preservar:', deliveredOrderIds);
@@ -326,7 +327,7 @@ class OrderService {
     
     try {
       // Obtener token de autenticación
-      const token = localStorage.getItem('ecommerce_auth_token');
+      const token = storageService.get('ecommerce_auth_token');
       if (!token) {
         console.error('❌ ORDER SERVICE: No hay token de autenticación disponible');
         return {
@@ -372,16 +373,16 @@ class OrderService {
         if (normalizedStatus === 'DELIVERED') {
           console.log('⚠️ ORDER SERVICE: Estado DELIVERED - preservando en caché');
           
-          // Agregar a localStorage para persistencia
+          // Agregar a sessionStorage para persistencia
           try {
-            const deliveredOrders = JSON.parse(localStorage.getItem('deliveredOrders') || '[]');
+            const deliveredOrders = storageService.get('deliveredOrders') || [];
             if (!deliveredOrders.includes(id)) {
               deliveredOrders.push(id);
-              localStorage.setItem('deliveredOrders', JSON.stringify(deliveredOrders));
-              console.log('💾 ORDER SERVICE: Pedido DELIVERED guardado en localStorage');
+              storageService.set('deliveredOrders', deliveredOrders);
+              console.log('💾 ORDER SERVICE: Pedido DELIVERED guardado en sessionStorage');
             }
           } catch (e) {
-            console.error('Error al guardar pedido DELIVERED en localStorage:', e);
+            console.error('Error al guardar pedido DELIVERED en sessionStorage:', e);
           }
           
           // Preservar pedido en caché especial para DELIVERED
@@ -411,7 +412,7 @@ class OrderService {
               // Hacer llamada directa sin usar caché para asegurar datos frescos
               const refreshResponse = await apiClient.get(API_ENDPOINTS.ORDERS.BY_ID(id), {}, {
                 headers: { 
-                  'Authorization': `Bearer ${localStorage.getItem('ecommerce_auth_token')}`,
+                  'Authorization': `Bearer ${storageService.get('ecommerce_auth_token')}`,
                   'Cache-Control': 'no-cache, no-store, must-revalidate' 
                 }
               });
@@ -447,7 +448,7 @@ class OrderService {
           // Hacer una llamada directa sin usar caché para asegurar datos frescos
           const verifyResponse = await apiClient.get(API_ENDPOINTS.ORDERS.BY_ID(id), {}, {
             headers: { 
-              'Authorization': `Bearer ${localStorage.getItem('ecommerce_auth_token')}`,
+              'Authorization': `Bearer ${storageService.get('ecommerce_auth_token')}`,
               'Cache-Control': 'no-cache, no-store, must-revalidate' 
             }
           });
