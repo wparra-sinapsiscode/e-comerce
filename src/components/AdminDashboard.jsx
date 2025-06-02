@@ -4647,8 +4647,8 @@ function AdminDashboard({
                 </div>
               )}
 
-              {/* Sección del Comprobante - Solo para métodos que requieren comprobante */}
-              {['TRANSFER', 'YAPE', 'PLIN'].includes(selectedPayment.method) && (
+              {/* Sección del Comprobante - Solo para métodos que requieren comprobante Y NO en modo orden de compra */}
+              {['TRANSFER', 'YAPE', 'PLIN'].includes(selectedPayment.method) && paymentModalMode !== 'order' && (
                 <VoucherSection>
                   <h3 className="voucher-title">
                     <ImageIcon size={20} />
