@@ -14,6 +14,14 @@ function App() {
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' })
   const [appCategories, setAppCategories] = useState([])
   const [appProducts, setAppProducts] = useState([])
+  const [productsPagination, setProductsPagination] = useState({
+    page: 1,
+    limit: 100,
+    total: 0,
+    totalPages: 0,
+    hasNext: false,
+    hasPrev: false
+  })
   const [orders, setOrders] = useState([])
   const [payments, setPayments] = useState([])
   const [cart, setCart] = useState([])
@@ -44,16 +52,19 @@ function App() {
       console.log('📦 APP: Primera categoría:', JSON.stringify(categoriesArray[0], null, 2))
       
       console.log('📦 APP: Cargando productos...')
-      const productsResponse = await productService.getAll()
+      const productsResponse = await productService.getAll({ page: 1, limit: 100 })
       console.log('📦 APP: Respuesta completa productos:', productsResponse)
       
       // Extraer correctamente los datos anidados
       const productsArray = productsResponse.data?.data || []
+      const paginationData = productsResponse.data?.meta?.pagination || {}
       console.log('📦 APP: Productos array:', productsArray)
+      console.log('📦 APP: Paginación:', paginationData)
       
       // Configurar los datos en el estado
       setAppCategories(categoriesArray)
       setAppProducts(productsArray)
+      setProductsPagination(paginationData)
       
       console.log('🛒 APP: Disparando la carga de pedidos...');
       console.log('📦 APP: Usuario actual completo:', authenticatedUser)
@@ -225,9 +236,41 @@ function App() {
     }
   }
 
+  // Función para cargar más productos (paginación)
+  const loadMoreProducts = async (page = 1) => {
+    try {
+      console.log(`📦 APP: Cargando página ${page} de productos...`)
+      const productsResponse = await productService.getAll({ page, limit: 100 })
+      
+      if (productsResponse.success) {
+        const newProducts = productsResponse.data?.data || []
+        const paginationData = productsResponse.data?.meta?.pagination || {}
+        
+        if (page === 1) {
+          // Primera página - reemplazar productos
+          setAppProducts(newProducts)
+        } else {
+          // Páginas siguientes - agregar a la lista existente
+          setAppProducts(prev => [...prev, ...newProducts])
+        }
+        
+        setProductsPagination(paginationData)
+        return { success: true, data: newProducts }
+      } else {
+        showToast('Error cargando más productos', 'error')
+        return { success: false, error: productsResponse.error }
+      }
+    } catch (error) {
+      console.error('Error loading more products:', error)
+      showToast('Error cargando más productos', 'error')
+      return { success: false, error }
+    }
+  }
+
   const appData = {
     categories: appCategories,
     products: appProducts,
+    productsPagination,
     orders,
     payments,
     cart,
@@ -238,6 +281,7 @@ function App() {
     setCart,
     paymentInfo,
     showToast,
+    loadMoreProducts,
     // API services
     categoryService,
     productService,

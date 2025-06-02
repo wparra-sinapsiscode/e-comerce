@@ -1466,11 +1466,89 @@ const ConfirmationCard = styled.div`
   }
 `
 
+const PaginationContainer = styled.div`
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  margin: 40px 0 20px 0;
+  padding: 20px;
+  
+  @media (max-width: 576px) {
+    gap: 12px;
+    margin: 30px 0 15px 0;
+    padding: 15px;
+  }
+`
+
+const PaginationInfo = styled.div`
+  font-size: 14px;
+  color: var(--gray-600);
+  text-align: center;
+  
+  .total-count {
+    font-weight: 600;
+    color: var(--primary-color);
+  }
+  
+  @media (max-width: 576px) {
+    font-size: 12px;
+  }
+`
+
+const LoadMoreButton = styled.button`
+  background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: var(--radius-lg);
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  
+  &:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+  }
+  
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
+  
+  .loading-spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid transparent;
+    border-top: 2px solid white;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+  
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+  
+  @media (max-width: 576px) {
+    padding: 10px 18px;
+    font-size: 13px;
+  }
+`
+
 function ClientStore({ 
   user, 
   logout, 
   categories, 
   products, 
+  productsPagination,
+  loadMoreProducts,
   cart, 
   setCart, 
   orders, 
@@ -1495,6 +1573,7 @@ function ClientStore({
   const [cartAnimation, setCartAnimation] = useState(null)
   const [productQuantities, setProductQuantities] = useState({})
   const [isLoading, setIsLoading] = useState(false)
+  const [isLoadingMoreProducts, setIsLoadingMoreProducts] = useState(false)
   const [checkoutData, setCheckoutData] = useState({
     name: '',
     phone: '',
@@ -2184,6 +2263,25 @@ function ClientStore({
   //   )
   // }
 
+  // Handle loading more products (pagination)
+  const handleLoadMore = async () => {
+    if (!loadMoreProducts || isLoadingMoreProducts || !productsPagination?.hasNext) {
+      return
+    }
+
+    try {
+      setIsLoadingMoreProducts(true)
+      const nextPage = productsPagination.page + 1
+      await loadMoreProducts(nextPage)
+      showToast(`Cargados más productos (página ${nextPage})`, 'success')
+    } catch (error) {
+      console.error('Error loading more products:', error)
+      showToast('Error cargando más productos', 'error')
+    } finally {
+      setIsLoadingMoreProducts(false)
+    }
+  }
+
   // Get featured categories and products for home view
   const featuredCategories = categories.slice(0, 4)
   const featuredProducts = products.slice(0, 6)
@@ -2552,6 +2650,40 @@ function ClientStore({
               )
             })}
           </ProductsGrid>
+          
+          {/* Pagination Controls */}
+          {productsPagination && (
+            <PaginationContainer>
+              <PaginationInfo>
+                Mostrando <span className="total-count">{products.length}</span> de {' '}
+                <span className="total-count">{productsPagination.total}</span> productos
+                {productsPagination.totalPages > 1 && (
+                  <div style={{ marginTop: '4px', fontSize: '12px' }}>
+                    Página {productsPagination.page} de {productsPagination.totalPages}
+                  </div>
+                )}
+              </PaginationInfo>
+              
+              {productsPagination.hasNext && (
+                <LoadMoreButton
+                  onClick={handleLoadMore}
+                  disabled={isLoadingMoreProducts}
+                >
+                  {isLoadingMoreProducts ? (
+                    <>
+                      <div className="loading-spinner"></div>
+                      Cargando...
+                    </>
+                  ) : (
+                    <>
+                      <Plus size={16} />
+                      Cargar más productos
+                    </>
+                  )}
+                </LoadMoreButton>
+              )}
+            </PaginationContainer>
+          )}
         </ClientView>
         
         {/* Product Details View */}
