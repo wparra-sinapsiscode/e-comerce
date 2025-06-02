@@ -2525,11 +2525,22 @@ function AdminDashboard({
           console.log('🏷️ CATEGORY SUBMIT: Nueva categoría (data.data):', response.data?.data)
           console.log('🏷️ CATEGORY SUBMIT: Nueva categoría (data directamente):', response.data)
           
-          // La categoría está directamente en response.data, no en response.data.category
-          const newCategory = response.data
+          // La categoría está en response.data.data según la estructura del backend
+          const newCategory = response.data.data || response.data
           console.log('🏷️ CATEGORY SUBMIT: Categoría procesada:', newCategory)
+          console.log('🏷️ CATEGORY SUBMIT: Categorías actuales antes de agregar:', safeCategories)
           
-          setCategories([...safeCategories, newCategory])
+          // Verificar que newCategory tenga la estructura correcta
+          if (!newCategory || !newCategory.id) {
+            console.error('❌ CATEGORY SUBMIT: La nueva categoría no tiene la estructura esperada:', newCategory)
+            showToast('Error: La categoría se creó pero no se pudo agregar a la lista', 'error')
+            return
+          }
+          
+          const updatedCategories = [...safeCategories, newCategory]
+          console.log('🏷️ CATEGORY SUBMIT: Categorías después de agregar:', updatedCategories)
+          
+          setCategories(updatedCategories)
           showToast('Categoría creada correctamente', 'success')
           closeCategoryModal()
         } else {
