@@ -13,13 +13,17 @@ const ClientSection = styled.section`
 const ClientHeader = styled.header`
   background-color: white;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-  padding: 15px 20px;
+  padding: 15px var(--spacing-md);
   display: flex;
   justify-content: space-between;
   align-items: center;
   position: sticky;
   top: 0;
   z-index: 90;
+  
+  @media (max-width: 576px) {
+    padding: var(--spacing-sm) var(--spacing-md);
+  }
 `
 
 const HeaderLeft = styled.div`
@@ -31,10 +35,20 @@ const MenuToggle = styled.div`
   display: none;
   margin-right: 15px;
   cursor: pointer;
-  font-size: 20px;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  
+  &:hover {
+    background-color: var(--gray-lighter);
+  }
   
   @media (max-width: 768px) {
-    display: block;
+    display: flex;
   }
 `
 
@@ -51,21 +65,33 @@ const Logo = styled.div`
     font-size: 20px;
     font-weight: 600;
     color: var(--gray-dark);
+    
+    @media (max-width: 576px) {
+      font-size: 18px;
+    }
+    
+    @media (max-width: 360px) {
+      display: none;
+    }
   }
 `
 
 const HeaderRight = styled.div`
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: var(--spacing-md);
+  
+  @media (max-width: 576px) {
+    gap: var(--spacing-sm);
+  }
 `
 
 const SearchBar = styled.div`
   display: flex;
   align-items: center;
   background-color: var(--gray-lighter);
-  border-radius: 30px;
-  padding: 12px 18px;
+  border-radius: var(--radius-full);
+  padding: 10px 16px;
   max-width: 400px;
   width: 100%;
   transition: all 0.3s ease;
@@ -74,13 +100,14 @@ const SearchBar = styled.div`
   &:focus-within {
     background-color: white;
     border-color: var(--primary-color);
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    box-shadow: 0 0 0 3px rgba(255, 87, 34, 0.1);
   }
   
   svg {
     color: var(--gray);
     margin-right: 12px;
     transition: color 0.3s ease;
+    min-width: 18px;
   }
   
   &:focus-within svg {
@@ -93,6 +120,8 @@ const SearchBar = styled.div`
     flex: 1;
     font-size: 14px;
     color: var(--gray-dark);
+    min-height: unset;
+    padding: 0;
     
     &::placeholder {
       color: var(--gray);
@@ -103,10 +132,49 @@ const SearchBar = styled.div`
     }
   }
   
+  @media (max-width: 768px) {
+    max-width: 220px;
+  }
+  
+  @media (max-width: 576px) {
+    position: fixed;
+    top: 65px;
+    left: 0;
+    right: 0;
+    max-width: none;
+    width: calc(100% - 32px);
+    margin: 0 16px;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    z-index: 85;
+    opacity: 0;
+    transform: translateY(-10px);
+    pointer-events: none;
+    
+    &.search-active {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: all;
+    }
+  }
+`
+
+const SearchToggle = styled.button`
+  display: none;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-full);
+  background: transparent;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  
+  &:hover {
+    background-color: var(--gray-lighter);
+  }
+  
   @media (max-width: 576px) {
     display: flex;
-    max-width: none;
-    margin: 0 20px;
   }
 `
 
@@ -227,33 +295,91 @@ const UserDropdown = styled.div`
   }
 `
 
+const SidebarOverlay = styled.div`
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 79;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  
+  @media (max-width: 768px) {
+    display: block;
+    
+    &.active {
+      opacity: 1;
+    }
+  }
+`
+
 const Sidebar = styled.div`
   width: 250px;
   height: calc(100vh - 65px);
   background-color: white;
-  box-shadow: 2px 0 5px rgba(0, 0, 0, 0.05);
-  padding: 20px;
+  box-shadow: var(--shadow);
+  padding: var(--spacing-md);
   position: fixed;
   left: 0;
   top: 65px;
   overflow-y: auto;
   z-index: 80;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
   
   h3 {
-    margin-bottom: 15px;
+    margin-bottom: var(--spacing-md);
     color: var(--gray-dark);
-    font-size: 18px;
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    
+    svg {
+      margin-right: var(--spacing-sm);
+      color: var(--primary-color);
+    }
   }
   
   @media (max-width: 768px) {
-    width: 0;
+    width: 280px;
     transform: translateX(-100%);
-    transition: var(--transition);
+    top: 0;
+    height: 100vh;
+    padding-top: var(--spacing-xl);
+    box-shadow: none;
     
     &.active {
-      width: 250px;
       transform: translateX(0);
+      box-shadow: var(--shadow-lg);
     }
+  }
+`
+
+const SidebarClose = styled.button`
+  display: none;
+  position: absolute;
+  top: var(--spacing-md);
+  right: var(--spacing-md);
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-full);
+  background: var(--gray-lighter);
+  border: none;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--gray);
+  
+  &:hover {
+    background-color: var(--gray-light);
+    color: var(--gray-dark);
+  }
+  
+  @media (max-width: 768px) {
+    display: flex;
   }
 `
 
@@ -261,9 +387,9 @@ const CategoryList = styled.ul`
   list-style: none;
   
   li {
-    padding: 10px 15px;
+    padding: var(--spacing-sm) var(--spacing-md);
     border-radius: var(--radius);
-    margin-bottom: 5px;
+    margin-bottom: var(--spacing-xs);
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -276,11 +402,18 @@ const CategoryList = styled.ul`
     &.active {
       background-color: var(--primary-light);
       color: var(--primary-dark);
+      font-weight: 500;
     }
     
     svg {
-      margin-right: 10px;
+      margin-right: var(--spacing-sm);
       font-size: 16px;
+      min-width: 16px;
+    }
+    
+    @media (max-width: 768px) {
+      padding: var(--spacing-md) var(--spacing-md);
+      margin-bottom: var(--spacing-sm);
     }
   }
 `
@@ -288,12 +421,45 @@ const CategoryList = styled.ul`
 const ClientContent = styled.main`
   flex: 1;
   margin-left: 250px;
-  padding: 20px;
+  padding: var(--spacing-md);
   overflow-y: auto;
   
   @media (max-width: 768px) {
     margin-left: 0;
-    padding-bottom: 70px;
+    padding: var(--spacing-md) var(--spacing-md) calc(70px + var(--spacing-md));
+  }
+`
+
+const MobileNavBar = styled.div`
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background-color: white;
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+  padding: var(--spacing-sm) 0;
+  z-index: 90;
+  
+  @media (max-width: 768px) {
+    display: flex;
+    justify-content: space-around;
+  }
+`
+
+const MobileNavItem = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--spacing-xs);
+  color: ${props => props.$active ? 'var(--primary-color)' : 'var(--gray)'};
+  
+  svg {
+    margin-bottom: 4px;
+  }
+  
+  span {
+    font-size: 12px;
   }
 `
 
@@ -336,18 +502,43 @@ const HeroContent = styled.div`
   }
 `
 
-const ProductsGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 20px;
+const SectionTitle = styled.h2`
+  font-size: var(--font-size-2xl);
+  margin-bottom: var(--spacing-md);
+  color: var(--gray-dark);
+  display: flex;
+  align-items: center;
+  
+  svg {
+    margin-right: var(--spacing-sm);
+    color: var(--primary-color);
+  }
   
   @media (max-width: 768px) {
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    font-size: var(--font-size-xl);
   }
   
   @media (max-width: 576px) {
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-    gap: 15px;
+    font-size: var(--font-size-lg);
+  }
+`
+
+const ProductsGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--spacing-md);
+  
+  @media (max-width: 992px) {
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  }
+  
+  @media (max-width: 768px) {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  }
+  
+  @media (max-width: 576px) {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: var(--spacing-sm);
   }
 `
 
@@ -358,10 +549,13 @@ const ProductCard = styled.div`
   box-shadow: var(--shadow);
   transition: all 0.3s ease;
   position: relative;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
   
   &:hover {
     transform: translateY(-4px);
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    box-shadow: var(--shadow-lg);
   }
   
   &.cart-animation {
@@ -371,6 +565,17 @@ const ProductCard = styled.div`
   @keyframes addToCartPulse {
     0%, 100% { transform: scale(1); }
     50% { transform: scale(1.05); }
+  }
+  
+  @media (hover: none) {
+    &:hover {
+      transform: none;
+      box-shadow: var(--shadow);
+    }
+  }
+  
+  @media (max-width: 576px) {
+    border-radius: var(--radius);
   }
 `
 

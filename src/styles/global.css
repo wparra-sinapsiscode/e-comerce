@@ -1,5 +1,6 @@
 /* Global Styles */
 :root {
+    /* Colores */
     --primary-color: #ff5722;
     --primary-dark: #e64a19;
     --primary-light: #ffccbc;
@@ -15,9 +16,43 @@
     --gray-lighter: #f5f5f5;
     --white: #ffffff;
     --black: #000000;
+    
+    /* Efectos */
     --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+    --shadow-inner: inset 0 2px 4px rgba(0, 0, 0, 0.05);
     --radius: 8px;
+    --radius-lg: 12px;
+    --radius-full: 9999px;
     --transition: all 0.3s ease;
+    
+    /* Espaciado */
+    --spacing-xs: 4px;
+    --spacing-sm: 8px;
+    --spacing-md: 16px;
+    --spacing-lg: 24px;
+    --spacing-xl: 32px;
+    --spacing-2xl: 48px;
+    
+    /* Tipografía */
+    --font-size-xs: 12px;
+    --font-size-sm: 14px;
+    --font-size-md: 16px;
+    --font-size-lg: 18px;
+    --font-size-xl: 20px;
+    --font-size-2xl: 24px;
+    --font-size-3xl: 30px;
+    
+    /* Breakpoints - para usar en media queries */
+    --breakpoint-xs: 375px;
+    --breakpoint-sm: 576px;
+    --breakpoint-md: 768px;
+    --breakpoint-lg: 992px;
+    --breakpoint-xl: 1200px;
+    --breakpoint-2xl: 1400px;
+    
+    /* Containers */
+    --container-padding: 16px;
 }
 
 * {
@@ -123,33 +158,48 @@ button:active, input[type="submit"]:active {
 
 /* Form styles */
 .form-group {
-    margin-bottom: 15px;
+    margin-bottom: var(--spacing-md);
 }
 
 .form-group label {
     display: block;
-    margin-bottom: 5px;
-    font-size: 14px;
+    margin-bottom: var(--spacing-xs);
+    font-size: var(--font-size-sm);
     color: var(--gray);
 }
 
 .form-row {
     display: flex;
-    gap: 15px;
-    margin-bottom: 15px;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-md);
+    flex-wrap: wrap;
 }
 
 .form-row .form-group {
-    flex: 1;
+    flex: 1 1 250px;
     margin-bottom: 0;
+}
+
+/* Form elements optimizados para móvil */
+@media (max-width: 576px) {
+    input, select, textarea, button {
+        font-size: 16px; /* Previene zoom automático en iOS */
+        min-height: 44px; /* Altura mínima para botones táctiles */
+    }
+    
+    .btn {
+        padding: var(--spacing-sm) var(--spacing-md);
+        width: 100%;
+        margin-bottom: var(--spacing-sm);
+    }
 }
 
 /* Status styles */
 .status {
     display: inline-block;
     padding: 4px 8px;
-    border-radius: 20px;
-    font-size: 12px;
+    border-radius: var(--radius-full);
+    font-size: var(--font-size-xs);
     font-weight: 500;
 }
 
@@ -166,4 +216,81 @@ button:active, input[type="submit"]:active {
 .status.completed {
     background-color: #d4edda;
     color: #155724;
+}
+
+/* Layout responsivo */
+.container {
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 var(--container-padding);
+}
+
+/* Grid system responsivo */
+.grid {
+    display: grid;
+    gap: var(--spacing-md);
+    width: 100%;
+}
+
+.grid-2 {
+    grid-template-columns: repeat(2, 1fr);
+}
+
+.grid-3 {
+    grid-template-columns: repeat(3, 1fr);
+}
+
+.grid-4 {
+    grid-template-columns: repeat(4, 1fr);
+}
+
+/* Media queries para grids responsivos */
+@media (max-width: 992px) {
+    .grid-4 {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (max-width: 768px) {
+    .grid-3, .grid-4 {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 576px) {
+    .grid-2, .grid-3, .grid-4 {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Utilidades responsivas */
+.hide-on-mobile {
+    display: block;
+}
+
+.show-on-mobile {
+    display: none;
+}
+
+@media (max-width: 768px) {
+    .hide-on-mobile {
+        display: none;
+    }
+    
+    .show-on-mobile {
+        display: block;
+    }
+}
+
+/* Mejoras para dispositivos táctiles */
+@media (hover: none) {
+    .btn, button, a {
+        transition: none; /* Elimina transiciones en dispositivos táctiles */
+    }
+    
+    input[type="checkbox"], input[type="radio"] {
+        min-width: 20px;
+        min-height: 20px;
+    }
 }
