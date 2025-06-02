@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, memo } from 'react'
 import styled from 'styled-components'
-import { Home, Tags, Package, ClipboardList, CreditCard, LogOut, Search, Plus, Edit, Trash2, Eye, X, Save, Upload, Image as ImageIcon, Apple, Beef, Fish, Carrot, Milk, Wheat, Wine, ShoppingBasket, Coffee, Egg, Droplets, Zap, Flower2, Soup, Utensils, Check, XCircle, Clock, AlertCircle, ZoomIn, ArrowRight, Truck, Package2, Link, Camera, User, DollarSign } from 'lucide-react'
+import { Home, Tags, Package, ClipboardList, CreditCard, LogOut, Search, Plus, Edit, Trash2, Eye, X, Save, Upload, Image as ImageIcon, Apple, Beef, Fish, Carrot, Milk, Wheat, Wine, ShoppingBasket, Coffee, Egg, Droplets, Zap, Flower2, Soup, Utensils, Check, XCircle, Clock, AlertCircle, ZoomIn, ArrowRight, Truck, Package2, Link, Camera, User, DollarSign, Printer } from 'lucide-react'
 
 // Importar componente de visualización de estado en español
 import OrderStatusBadge from './OrderStatusBadge'
@@ -3731,6 +3731,7 @@ function AdminDashboard({
                     <th>Método</th>
                     <th>Estado</th>
                     <th>Acciones</th>
+                    <th>Comanda</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -3756,6 +3757,37 @@ function AdminDashboard({
                           </button>
                         ) : (
                           <span style={{ color: '#6b7280', fontSize: '13px' }}>Sin comprobante</span>
+                        )}
+                      </td>
+                      <td>
+                        {payment.status === 'VERIFIED' ? (
+                          <button 
+                            className="btn"
+                            style={{ 
+                              fontSize: '12px', 
+                              padding: '4px 8px',
+                              backgroundColor: '#10b981',
+                              color: 'white'
+                            }}
+                            onClick={() => {
+                              // Buscar la orden asociada a este pago
+                              const order = safeOrders.find(o => o.id === payment.order_id);
+                              if (order) {
+                                // Configurar el modal para mostrar la orden de compra
+                                setSelectedOrder(order);
+                                setSelectedPayment(payment);
+                                setPaymentModalMode('order'); // Nuevo modo para la comanda
+                                setShowPaymentModal(true);
+                              } else {
+                                showToast('No se encontró la orden asociada a este pago', 'error');
+                              }
+                            }}
+                          >
+                            <ClipboardList size={14} />
+                            Orden de compra
+                          </button>
+                        ) : (
+                          <span style={{ color: '#6b7280', fontSize: '13px' }}>No disponible</span>
                         )}
                       </td>
                     </tr>
@@ -4090,8 +4122,17 @@ function AdminDashboard({
             {console.log('🔍 MODAL RENDERIZANDO - selectedPayment:', selectedPayment)}
             <PaymentModalHeader>
               <h2>
-                <CreditCard size={28} />
-                Verificación de Pago
+                {paymentModalMode === 'order' ? (
+                  <>
+                    <ClipboardList size={28} />
+                    Orden de Compra
+                  </>
+                ) : (
+                  <>
+                    <CreditCard size={28} />
+                    Verificación de Pago
+                  </>
+                )}
               </h2>
               <button className="close-btn" onClick={closePaymentModal}>
                 <X size={20} />
@@ -4122,6 +4163,20 @@ function AdminDashboard({
                     <div className="field-label">ID del Pedido</div>
                     <div className="field-value">{selectedPayment.order_id}</div>
                   </div>
+                  
+                  {selectedOrder && selectedOrder.customer_reference && (
+                    <div className="customer-field">
+                      <div className="field-label">Referencia del Cliente</div>
+                      <div className="field-value">{selectedOrder.customer_reference}</div>
+                    </div>
+                  )}
+
+                  {selectedOrder && selectedOrder.customer_address && (
+                    <div className="customer-field">
+                      <div className="field-label">Dirección de Entrega</div>
+                      <div className="field-value">{selectedOrder.customer_address}</div>
+                    </div>
+                  )}
                 </div>
               </CustomerInfo>
 
@@ -4326,8 +4381,127 @@ function AdminDashboard({
                 </VoucherSection>
               )}
 
-              {/* Acciones del Pago - Solo mostrar si NO es modo view */}
-              {paymentModalMode !== 'view' && (
+              {/* Sección para mostrar información resumida del total en modo orden de compra */}
+              {paymentModalMode === 'order' && selectedOrder && (
+                <div style={{
+                  marginTop: '30px',
+                  padding: '20px',
+                  backgroundColor: '#f0fdf4',
+                  borderRadius: '12px',
+                  border: '2px solid #10b981',
+                  textAlign: 'center'
+                }}>
+                  <h3 style={{ 
+                    fontSize: '18px', 
+                    fontWeight: '600', 
+                    color: '#065f46',
+                    marginBottom: '15px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px'
+                  }}>
+                    <DollarSign size={20} />
+                    Resumen del Pedido
+                  </h3>
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(2, 1fr)',
+                    gap: '15px',
+                    marginBottom: '20px'
+                  }}>
+                    <div style={{ textAlign: 'left' }}>
+                      <div style={{ fontSize: '14px', color: '#059669', marginBottom: '4px', fontWeight: '500' }}>
+                        Subtotal:
+                      </div>
+                      <div style={{ fontSize: '16px', fontWeight: '600', color: '#065f46' }}>
+                        S/ {formatPrice(selectedOrder.subtotal)}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'left' }}>
+                      <div style={{ fontSize: '14px', color: '#059669', marginBottom: '4px', fontWeight: '500' }}>
+                        IGV (18%):
+                      </div>
+                      <div style={{ fontSize: '16px', fontWeight: '600', color: '#065f46' }}>
+                        S/ {formatPrice(selectedOrder.tax)}
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{
+                    padding: '15px',
+                    backgroundColor: '#059669',
+                    borderRadius: '8px',
+                    color: 'white',
+                    fontSize: '20px',
+                    fontWeight: '700',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '10px'
+                  }}>
+                    <DollarSign size={24} />
+                    TOTAL: S/ {formatPrice(selectedOrder.total)}
+                  </div>
+                </div>
+              )}
+              
+              {/* Notas del pedido (solo si existen y estamos en modo orden) */}
+              {paymentModalMode === 'order' && selectedOrder && selectedOrder.notes && (
+                <div style={{
+                  marginTop: '20px',
+                  padding: '20px',
+                  backgroundColor: '#eff6ff',
+                  borderRadius: '12px',
+                  border: '1px solid #93c5fd',
+                }}>
+                  <h3 style={{ 
+                    fontSize: '16px', 
+                    fontWeight: '600', 
+                    color: '#1e40af',
+                    marginBottom: '10px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}>
+                    <ClipboardList size={18} />
+                    Notas Adicionales
+                  </h3>
+                  <div style={{
+                    fontSize: '14px',
+                    color: '#1e3a8a',
+                    fontStyle: 'italic',
+                    padding: '10px',
+                    backgroundColor: 'white',
+                    borderRadius: '8px',
+                    border: '1px solid #bfdbfe'
+                  }}>
+                    {selectedOrder.notes}
+                  </div>
+                </div>
+              )}
+              
+              {/* Botón de impresión para modo orden de compra */}
+              {paymentModalMode === 'order' && (
+                <StatusActions>
+                  <button 
+                    className="action-btn"
+                    style={{
+                      backgroundColor: '#10b981',
+                      color: 'white'
+                    }}
+                    onClick={() => {
+                      // Implementar funcionalidad de impresión (para futura implementación)
+                      window.print();
+                    }}
+                  >
+                    <Printer size={20} />
+                    Imprimir Orden de Compra
+                  </button>
+                </StatusActions>
+              )}
+
+              {/* Acciones del Pago - Solo mostrar si es modo verify */}
+              {paymentModalMode === 'verify' && (
               <StatusActions>
                 {/* Botones simplificados para verificar/rechazar pago */}
                 {paymentModalMode === 'verify' && selectedPayment.status === 'PENDING' && (
