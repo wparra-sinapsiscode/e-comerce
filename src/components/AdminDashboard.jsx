@@ -2130,10 +2130,32 @@ function AdminDashboard({
     
     const nextAvailableStep = getNextAvailableStep()
     
+    // Crear un mapa de status a índices para comparar fácilmente
+    const statusIndices = {
+      'awaiting_payment': 0,
+      'payment_verified': 1,
+      'preparing': 2,
+      'ready_for_shipping': 3,
+      'shipped': 4,
+      'delivered': 5
+    }
+    
+    // Determinar el índice máximo alcanzado en el flujo (para marcar todos los anteriores como completados)
+    const currentStatusKey = order.status.toLowerCase();
+    let maxReachedIndex = statusIndices[currentStatusKey] || 0;
+    
+    // Si el pago está verificado, asegurarse de que payment_verified esté marcado como completado
+    if (isPaymentVerified) {
+      maxReachedIndex = Math.max(maxReachedIndex, statusIndices['payment_verified']);
+    }
+    
     return (
       <WorkflowContainer>
         {steps.map((step, index) => {
-          const isCompleted = index < currentIndex || (step.key === 'payment_verified' && isPaymentVerified)
+          // Un paso está completado si:
+          // 1. Su índice es menor que el índice actual del flujo
+          // 2. O si es el paso de pago verificado y el pago está verificado
+          const isCompleted = index <= maxReachedIndex || (step.key === 'payment_verified' && isPaymentVerified)
           const isActive = index === currentIndex
           const isNextAvailable = step.key === nextAvailableStep
           const canAdvance = isNextAvailable && !isCompleted
