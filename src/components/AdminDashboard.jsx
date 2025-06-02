@@ -3741,13 +3741,7 @@ function AdminDashboard({
                       <td>{payment.customer}</td>
                       <td>{formatDate(payment.date)}</td>
                       <td>
-                        {payment.status === 'VERIFIED' && ['TRANSFER', 'YAPE', 'PLIN'].includes(payment.method) ? (
-                          <span style={{ color: '#10b981', fontWeight: '500', fontSize: '13px' }}>
-                            ✓ Pagado
-                          </span>
-                        ) : (
-                          <>S/ {formatPrice(payment.amount)}</>
-                        )}
+                        <>S/ {formatPrice(payment.amount)}</>
                       </td>
                       <td><PaymentMethodDisplay method={payment.method} size="small" /></td>
                       <td>
