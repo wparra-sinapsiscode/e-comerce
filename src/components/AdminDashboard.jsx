@@ -3857,7 +3857,12 @@ function AdminDashboard({
                   </tr>
                 </thead>
                 <tbody>
-                  {safePayments.filter(payment => payment.status !== 'PENDING').map(payment => (
+                  {safePayments.filter(payment => 
+                    payment.status !== 'PENDING' && 
+                    payment.order_id && 
+                    payment.date && 
+                    payment.amount > 0
+                  ).map(payment => (
                     <tr key={payment.id}>
                       <td>{payment.order_id}</td>
                       <td>{payment.customer}</td>
