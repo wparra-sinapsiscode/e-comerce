@@ -3590,6 +3590,7 @@ function AdminDashboard({
                     <th>Monto</th>
                     <th>Estado</th>
                     <th>Acciones</th>
+                    <th>Comanda</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -3601,6 +3602,57 @@ function AdminDashboard({
                       <td>S/ {formatPrice(order.total)}</td>
                       <td><OrderStatusBadge status={order.status} size="small" /></td>
                       <td>{getOrderActions(order)}</td>
+                      <td>
+                        {order.payment_status === 'VERIFIED' ? (
+                          <button 
+                            className="btn"
+                            style={{ 
+                              fontSize: '12px', 
+                              padding: '4px 8px',
+                              backgroundColor: '#10b981',
+                              color: 'white'
+                            }}
+                            onClick={() => {
+                              // Buscar el pago asociado a esta orden
+                              const payment = safePayments.find(p => p.order_id === order.id);
+                              if (payment) {
+                                // Configurar el modal para mostrar la orden de compra
+                                setSelectedOrder(order);
+                                setSelectedPayment(payment);
+                                setPaymentModalMode('order'); // Modo para la comanda
+                                setShowPaymentModal(true);
+                              } else {
+                                // Crear un pago temporal para esta orden
+                                const tempPayment = {
+                                  id: `temp-${order.id}`,
+                                  order_id: order.id,
+                                  customer: order.customer_name || order.customer,
+                                  customer_name: order.customer_name || order.customer,
+                                  customerName: order.customer_name || order.customer,
+                                  customer_phone: order.customer_phone,
+                                  customerPhone: order.customer_phone,
+                                  amount: order.total,
+                                  method: order.payment_method,
+                                  status: 'VERIFIED',
+                                  voucher: null,
+                                  date: order.date,
+                                  created_at: order.created_at
+                                };
+                                
+                                setSelectedOrder(order);
+                                setSelectedPayment(tempPayment);
+                                setPaymentModalMode('order');
+                                setShowPaymentModal(true);
+                              }
+                            }}
+                          >
+                            <ClipboardList size={14} />
+                            Orden de compra
+                          </button>
+                        ) : (
+                          <span style={{ color: '#6b7280', fontSize: '13px' }}>No disponible</span>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
