@@ -3814,7 +3814,15 @@ function AdminDashboard({
                       <td>{payment.order_id}</td>
                       <td>{payment.customer}</td>
                       <td>{formatDate(payment.date)}</td>
-                      <td>S/ {formatPrice(payment.amount)}</td>
+                      <td>
+                        {payment.status === 'VERIFIED' && ['TRANSFER', 'YAPE', 'PLIN'].includes(payment.method) ? (
+                          <span style={{ color: '#10b981', fontWeight: '500', fontSize: '13px' }}>
+                            ✓ Pagado
+                          </span>
+                        ) : (
+                          <>S/ {formatPrice(payment.amount)}</>
+                        )}
+                      </td>
                       <td><PaymentMethodDisplay method={payment.method} size="small" /></td>
                       <td>
                         <OrderStatusBadge status={payment.status} size="small" />
@@ -4275,6 +4283,26 @@ function AdminDashboard({
                       <ShoppingBasket size={20} />
                       Productos del Pedido ({selectedOrder.items.length})
                     </h3>
+                    
+                    {/* Mostrar mensaje de "NO COBRAR" para pagos ya realizados */}
+                    {paymentModalMode === 'order' && selectedPayment && 
+                     ['TRANSFER', 'YAPE', 'PLIN'].includes(selectedPayment.method) && 
+                     selectedPayment.status === 'VERIFIED' && (
+                      <div style={{
+                        padding: '10px 15px',
+                        backgroundColor: '#fee2e2',
+                        borderRadius: '8px',
+                        marginBottom: '15px',
+                        border: '1px solid #ef4444',
+                        color: '#b91c1c',
+                        fontWeight: '600',
+                        textAlign: 'center',
+                        fontSize: '14px'
+                      }}>
+                        ⚠️ PAGO YA REALIZADO - NO COBRAR ⚠️
+                      </div>
+                    )}
+                    
                     <div style={{ 
                       display: 'grid',
                       gap: '12px'
@@ -4336,37 +4364,51 @@ function AdminDashboard({
                               fontSize: '13px',
                               color: '#9ca3af'
                             }}>
-                              Cantidad: {parseFloat(item.quantity)} • Precio: S/ {formatPrice(item.price)}
+                              Cantidad: {parseFloat(item.quantity)}
+                              {/* Solo mostrar precio unitario si es pago contra entrega (CASH) */}
+                              {(paymentModalMode !== 'order' || 
+                                (selectedPayment && selectedPayment.method === 'CASH')) && (
+                                <> • Precio: S/ {formatPrice(item.price)}</>
+                              )}
                             </div>
                           </div>
-                          <div style={{
-                            textAlign: 'right',
-                            flexShrink: 0
-                          }}>
+                          {/* Solo mostrar subtotal del item si es pago contra entrega (CASH) */}
+                          {(paymentModalMode !== 'order' || 
+                            (selectedPayment && selectedPayment.method === 'CASH')) && (
                             <div style={{
-                              fontSize: '16px',
-                              fontWeight: '600',
-                              color: '#059669'
+                              textAlign: 'right',
+                              flexShrink: 0
                             }}>
-                              S/ {formatPrice(item.total)}
+                              <div style={{
+                                fontSize: '16px',
+                                fontWeight: '600',
+                                color: '#059669'
+                              }}>
+                                S/ {formatPrice(item.total)}
+                              </div>
                             </div>
-                          </div>
+                          )}
                         </div>
                       ))}
                     </div>
-                    <div style={{
-                      marginTop: '15px',
-                      padding: '15px',
-                      backgroundColor: '#dbeafe',
-                      borderRadius: '8px',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      fontWeight: '600'
-                    }}>
-                      <span style={{ color: '#1e40af' }}>Total del Pedido:</span>
-                      <span style={{ color: '#1e40af', fontSize: '18px' }}>S/ {formatPrice(selectedOrder.total)}</span>
-                    </div>
+                    
+                    {/* Solo mostrar total del pedido si es pago contra entrega (CASH) */}
+                    {(paymentModalMode !== 'order' || 
+                      (selectedPayment && selectedPayment.method === 'CASH')) && (
+                      <div style={{
+                        marginTop: '15px',
+                        padding: '15px',
+                        backgroundColor: '#dbeafe',
+                        borderRadius: '8px',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        fontWeight: '600'
+                      }}>
+                        <span style={{ color: '#1e40af' }}>Total del Pedido:</span>
+                        <span style={{ color: '#1e40af', fontSize: '18px' }}>S/ {formatPrice(selectedOrder.total)}</span>
+                      </div>
+                    )}
                   </div>
                 ) : null}
 
@@ -4396,13 +4438,17 @@ function AdminDashboard({
                   <div className="detail-value">{formatDate(selectedPayment.date)}</div>
                 </DetailCard>
 
-                <DetailCard className="amount-card">
-                  <div className="detail-label">Monto Total</div>
-                  <div className="detail-value">
-                    <DollarSign size={24} />
-                    S/ {formatPrice(selectedPayment.amount)}
-                  </div>
-                </DetailCard>
+                {/* Ocultar monto total para pagos ya realizados en modo orden de compra */}
+                {!(paymentModalMode === 'order' && 
+                   ['TRANSFER', 'YAPE', 'PLIN'].includes(selectedPayment.method)) && (
+                  <DetailCard className="amount-card">
+                    <div className="detail-label">Monto Total</div>
+                    <div className="detail-value">
+                      <DollarSign size={24} />
+                      S/ {formatPrice(selectedPayment.amount)}
+                    </div>
+                  </DetailCard>
+                )}
               </PaymentDetails>
 
               {/* Nota informativa para pagos en efectivo */}
@@ -4455,8 +4501,8 @@ function AdminDashboard({
                 </VoucherSection>
               )}
 
-              {/* Sección para mostrar información resumida del total en modo orden de compra */}
-              {paymentModalMode === 'order' && selectedOrder && (
+              {/* Sección para mostrar información resumida del total en modo orden de compra (solo para CASH) */}
+              {paymentModalMode === 'order' && selectedOrder && selectedPayment && selectedPayment.method === 'CASH' && (
                 <div style={{
                   marginTop: '30px',
                   padding: '20px',
@@ -4476,7 +4522,7 @@ function AdminDashboard({
                     gap: '8px'
                   }}>
                     <DollarSign size={20} />
-                    Resumen del Pedido
+                    Cobrar al entregar
                   </h3>
                   <div style={{
                     display: 'grid',
@@ -4514,7 +4560,51 @@ function AdminDashboard({
                     gap: '10px'
                   }}>
                     <DollarSign size={24} />
-                    TOTAL: S/ {formatPrice(selectedOrder.total)}
+                    TOTAL A COBRAR: S/ {formatPrice(selectedOrder.total)}
+                  </div>
+                </div>
+              )}
+              
+              {/* Mensaje de NO COBRAR para pagos ya realizados */}
+              {paymentModalMode === 'order' && selectedOrder && selectedPayment && 
+                ['TRANSFER', 'YAPE', 'PLIN'].includes(selectedPayment.method) && (
+                <div style={{
+                  marginTop: '30px',
+                  padding: '20px',
+                  backgroundColor: '#fff1f2',
+                  borderRadius: '12px',
+                  border: '2px solid #be123c',
+                  textAlign: 'center'
+                }}>
+                  <h3 style={{ 
+                    fontSize: '18px', 
+                    fontWeight: '700', 
+                    color: '#be123c',
+                    marginBottom: '10px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px'
+                  }}>
+                    <AlertCircle size={24} />
+                    PAGO YA REALIZADO
+                  </h3>
+                  <div style={{
+                    fontSize: '16px',
+                    color: '#9f1239',
+                    marginBottom: '10px'
+                  }}>
+                    Este pedido ya ha sido pagado mediante {getPaymentMethodLabel(selectedPayment.method)}.
+                  </div>
+                  <div style={{
+                    fontSize: '16px',
+                    fontWeight: '700',
+                    color: '#be123c',
+                    backgroundColor: '#fecdd3',
+                    padding: '10px',
+                    borderRadius: '8px'
+                  }}>
+                    NO COBRAR ESTE PEDIDO
                   </div>
                 </div>
               )}
