@@ -1806,6 +1806,13 @@ function AdminDashboard({
     unit: ''
   })
   
+  // Progress tracking for multi-product creation
+  const [multiProductProgress, setMultiProductProgress] = useState({
+    total: 0,
+    completed: 0,
+    inProgress: false
+  })
+  
   // Products pagination
   const [currentPage, setCurrentPage] = useState(1)
   const productsPerPage = 12 // Show 12 products per page
@@ -2371,6 +2378,8 @@ function AdminDashboard({
       setProductForm(prev => ({ ...prev, presentations: [] }))
     } else {
       console.log('📝 PRODUCTO: Habilitando sección de presentaciones')
+      // Mostrar ayuda sobre el modo de múltiples productos
+      showToast('Modo activado: Para cada presentación se creará un producto independiente. Agrega todas las presentaciones que necesites.', 'info', 6000)
     }
     
     console.log('📝 PRODUCTO: Formulario actualizado con unidad:', unit)
@@ -2517,8 +2526,15 @@ function AdminDashboard({
     console.log('🔍 UNIT VALUE CODE:', productForm.unit ? productForm.unit.charCodeAt(0) : 'undefined')
     console.log('🔍 FORM COMPLETO:', productForm)
     
-    if (!productForm.name.trim() || !productForm.category_id || !productForm.price || !productForm.unit) {
+    // Validación condicional: precio no obligatorio en modo presentación
+    if (!productForm.name.trim() || !productForm.category_id || !productForm.unit) {
       showToast('Todos los campos obligatorios deben ser completados', 'error')
+      return
+    }
+    
+    // Validar precio solo si no estamos en modo presentación
+    if (productForm.unit !== 'PRESENTATION' && !productForm.price) {
+      showToast('El precio es obligatorio para este tipo de producto', 'error')
       return
     }
 
@@ -2530,10 +2546,14 @@ function AdminDashboard({
       }
     }
 
-    const price = parseFloat(productForm.price)
-    if (isNaN(price) || price <= 0) {
-      showToast('El precio debe ser un número válido mayor a 0', 'error')
-      return
+    // Solo validar precio numérico si no estamos en modo presentación
+    let price = 0;
+    if (productForm.unit !== 'PRESENTATION') {
+      price = parseFloat(productForm.price)
+      if (isNaN(price) || price <= 0) {
+        showToast('El precio debe ser un número válido mayor a 0', 'error')
+        return
+      }
     }
 
     setIsLoading(true)
@@ -2567,14 +2587,131 @@ function AdminDashboard({
           showToast(response.error?.message || 'Error al actualizar producto', 'error')
         }
       } else {
-        // Create new product
-        console.log('➕ CREATING PRODUCT')
+        // Create new product(s)
+        console.log('➕ CREATING PRODUCT(S)')
         
+        // Verificar si estamos en modo de presentaciones múltiples
+        if ((productForm.unit === 'presentation' || productForm.unit === 'PRESENTATION') && productForm.presentations.length > 0) {
+          console.log('🧩 MODO MULTI-PRODUCTO: Creando productos independientes para cada presentación')
+          
+          // Array para almacenar todas las promesas de creación de productos
+          const creationPromises = [];
+          const createdProducts = [];
+          
+          // Para cada presentación, crear un producto separado
+          for (const presentation of productForm.presentations) {
+            // Validar que la unidad de presentación sea compatible con el backend
+            // Las unidades permitidas son: kg, u, l, g, paq
+            // Convertir a minúsculas y normalizar
+            let normalizedUnit = presentation.unit.toLowerCase().trim();
+            
+            // Verificar si la unidad es válida según el enum UnitTypeSchema
+            const validUnits = ['kg', 'u', 'l', 'g', 'paq'];
+            if (!validUnits.includes(normalizedUnit)) {
+              console.warn(`⚠️ Unidad no reconocida "${normalizedUnit}" para presentación "${presentation.name}". Usando "u" (unidad) por defecto.`);
+              normalizedUnit = 'u'; // Unidad por defecto si no es reconocida
+            }
+            
+            // Validar que el precio sea mayor que 0
+            const presentationPrice = parseFloat(presentation.price);
+            const validPrice = !isNaN(presentationPrice) && presentationPrice > 0 
+                              ? presentationPrice 
+                              : 0.01; // Valor mínimo válido si el precio es inválido
+            
+            // Crear datos para este producto específico
+            const variantData = {
+              name: `${productForm.name.trim()} - ${presentation.name}`, // Ej: "Agua - 1 Litro"
+              category_id: parseInt(productForm.category_id),
+              price: validPrice, // Usar el precio validado de esta presentación
+              unit: normalizedUnit, // Usar la unidad normalizada
+              description: productForm.description.trim(),
+              image: productForm.image.trim(), // Usar la misma imagen para todas las variantes
+              active: true
+            };
+            
+            console.log(`🔍 DATOS PARA VARIANTE "${presentation.name}":`, variantData);
+            
+            // Crear este producto y añadir la promesa al array
+            const createPromise = productService.createProduct(variantData)
+              .then(response => {
+                if (response.success) {
+                  console.log(`✅ Producto "${variantData.name}" creado exitosamente:`, response.data);
+                  createdProducts.push(response.data);
+                  return response;
+                } else {
+                  console.error(`❌ Error al crear producto "${variantData.name}":`, response.error);
+                  throw new Error(response.error?.message || `Error al crear ${variantData.name}`);
+                }
+              });
+            
+            creationPromises.push(createPromise);
+          }
+          
+          // Esperar a que todas las creaciones se completen
+          try {
+            // Configurar progreso inicial
+            setMultiProductProgress({
+              total: productForm.presentations.length,
+              completed: 0,
+              inProgress: true
+            });
+            
+            // Crear los productos uno por uno para mostrar progreso
+            for (let i = 0; i < creationPromises.length; i++) {
+              // Esperar a que se complete cada promesa individualmente
+              const result = await creationPromises[i];
+              console.log(`✅ Producto ${i+1}/${creationPromises.length} creado`);
+              
+              // Actualizar el progreso
+              setMultiProductProgress(prev => ({
+                ...prev,
+                completed: prev.completed + 1
+              }));
+            }
+            
+            console.log('✅ TODOS LOS PRODUCTOS CREADOS');
+            
+            // Actualizar el estado con todos los productos creados
+            setProducts(currentProducts => {
+              const updatedProducts = [...currentProducts, ...createdProducts];
+              return updatedProducts;
+            });
+            
+            // Mostrar mensaje de éxito
+            showToast(`${createdProducts.length} productos creados exitosamente`, 'success');
+            
+            // Reiniciar el progreso
+            setMultiProductProgress({
+              total: 0,
+              completed: 0,
+              inProgress: false
+            });
+            
+            // Retornar para evitar ejecutar el código de creación de producto simple
+            closeProductModal();
+            return;
+          } catch (error) {
+            console.error('❌ Error en la creación de productos múltiples:', error);
+            showToast('Error: ' + error.message, 'error');
+            
+            // Reiniciar el progreso en caso de error
+            setMultiProductProgress({
+              total: 0,
+              completed: 0,
+              inProgress: false
+            });
+            
+            setIsLoading(false);
+            return;
+          }
+        }
+        
+        // Si no es producto con presentaciones, continuar con el flujo normal
         // CONVERSIÓN FORZADA A MINÚSCULAS
         const productData = {
           name: productForm.name.trim(),
           category_id: parseInt(productForm.category_id),
-          price: price,
+          price: productForm.unit === 'PRESENTATION' ? 0.01 : price, // Asignar valor mínimo válido para presentaciones
           unit: productForm.unit.toLowerCase(), // FRONTEND SE ADAPTA AL BACKEND
           description: productForm.description.trim(),
           active: true
@@ -2588,22 +2725,7 @@ function AdminDashboard({
           productData.image = productForm.image.trim()
         }
         
-        // NO agregar presentations al producto principal
-        // Las presentaciones se manejan por separado después de crear el producto
-        // if (productForm.unit === 'presentation') {
-        //   productData.presentations = productForm.presentations
-        // }
-        
-        console.log('📦 DATOS DEL PRODUCTO A CREAR:', {
-          name: productData.name,
-          category_id: productData.category_id,
-          price: productData.price,
-          unit: productData.unit,
-          description: productData.description,
-          image: productData.image,
-          active: productData.active,
-          presentations: productData.presentations
-        })
+        console.log('📦 DATOS DEL PRODUCTO A CREAR:', productData)
         console.log('✅ VALIDANDO DATOS ANTES DE ENVIAR:', {
           category_id_existe: productData.category_id !== undefined,
           category_id_valor: productData.category_id,
@@ -3917,8 +4039,19 @@ function AdminDashboard({
                     value={productForm.price}
                     onChange={(e) => setProductForm({...productForm, price: e.target.value})}
                     placeholder="0.00"
-                    required
+                    required={productForm.unit !== 'PRESENTATION'}
+                    disabled={productForm.unit === 'PRESENTATION'}
                   />
+                  {productForm.unit === 'PRESENTATION' && (
+                    <div style={{ 
+                      fontSize: '12px', 
+                      color: '#4b5563', 
+                      marginTop: '5px',
+                      fontStyle: 'italic'
+                    }}>
+                      El precio se tomará de cada presentación individual
+                    </div>
+                  )}
                 </FormGroup>
                 
                 <FormGroup>
@@ -3941,19 +4074,54 @@ function AdminDashboard({
               
               {showPresentations && (
                 <PresentationSection>
+                  <div style={{ 
+                    backgroundColor: '#f0f9ff', 
+                    border: '2px solid #3b82f6',
+                    borderRadius: '8px', 
+                    padding: '15px', 
+                    marginBottom: '20px' 
+                  }}>
+                    <h4 style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '8px',
+                      color: '#1e40af',
+                      marginBottom: '10px'
+                    }}>
+                      <Package size={18} />
+                      Modo Multi-Producto: Presentaciones
+                    </h4>
+                    <p style={{ color: '#3b82f6', fontSize: '14px', marginBottom: '10px' }}>
+                      <strong>⚠️ Importante:</strong> Para cada presentación que agregues, se creará un producto independiente en el catálogo.
+                    </p>
+                    <ul style={{ 
+                      color: '#1e40af', 
+                      fontSize: '13px', 
+                      paddingLeft: '20px',
+                      marginBottom: '0'
+                    }}>
+                      <li>Ejemplo: Si agregas "Agua" con presentaciones "500ml", "1L" y "2.5L", se crearán 3 productos separados</li>
+                      <li>Cada producto tendrá su propio nombre (combinando el nombre base y la cantidad/volumen)</li>
+                      <li>En "Cantidad/Volumen" coloca valores como "500 ml", "1 L", "2.5 kg", etc.</li>
+                      <li>Cada producto tendrá su propio precio y unidad de medida</li>
+                      <li>Todos compartirán la misma descripción e imagen</li>
+                    </ul>
+                  </div>
+                  
                   <h4>📦 Presentaciones del Producto</h4>
                   <p style={{ marginBottom: '15px', color: 'var(--gray)', fontSize: '14px' }}>
-                    Agrega las diferentes presentaciones disponibles (ej: 500ml, 1L, 2.5L)
+                    Agrega las diferentes presentaciones disponibles (ej: 500ml, 1L, 2.5L).<br />
+                    <strong>Se crearán productos separados para cada una de ellas.</strong>
                   </p>
                   
                   <PresentationForm>
                     <div>
                       <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: '500' }}>
-                        Nombre de presentación
+                        Cantidad/Volumen (ej: "500 ml", "1 L")
                       </label>
                       <input
                         type="text"
-                        placeholder="Ej: Botella 500ml"
+                        placeholder="Ej: 500 ml, 1 L, 2.5 kg"
                         value={currentPresentation.name}
                         onChange={(e) => setCurrentPresentation(prev => ({ ...prev, name: e.target.value }))}
                       />
@@ -3974,21 +4142,42 @@ function AdminDashboard({
                       <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: '500' }}>
                         Unidad
                       </label>
-                      <select
-                        value={currentPresentation.unit}
-                        onChange={(e) => setCurrentPresentation(prev => ({ ...prev, unit: e.target.value }))}
-                      >
-                        <option value="">Seleccionar</option>
-                        <option value="ml">Mililitro (ml)</option>
-                        <option value="L">Litro (L)</option>
-                        <option value="g">Gramo (g)</option>
-                        <option value="kg">Kilogramo (kg)</option>
-                        <option value="lata">Lata</option>
-                        <option value="botella">Botella</option>
-                        <option value="pack">Pack</option>
-                        <option value="pqt">Paquete</option>
-                        <option value="bolsa">Bolsa</option>
-                      </select>
+                      <div>
+                        <select
+                          value={currentPresentation.unit}
+                          onChange={(e) => setCurrentPresentation(prev => ({ ...prev, unit: e.target.value }))}
+                          style={{ width: '100%', marginBottom: '5px' }}
+                        >
+                          <option value="">Seleccionar</option>
+                          <option value="l">Litro (l) - Compatible con backend</option>
+                          <option value="g">Gramo (g) - Compatible con backend</option>
+                          <option value="kg">Kilogramo (kg) - Compatible con backend</option>
+                          <option value="u">Unidad (u) - Compatible con backend</option>
+                          <option value="paq">Paquete (paq) - Compatible con backend</option>
+                          <option disabled>──────── Otras unidades ────────</option>
+                          <option value="ml">Mililitro (ml) - Se convertirá a "u"</option>
+                          <option value="lata">Lata - Se convertirá a "u"</option>
+                          <option value="botella">Botella - Se convertirá a "u"</option>
+                          <option value="caja">Caja - Se convertirá a "u"</option>
+                          <option value="bolsa">Bolsa - Se convertirá a "u"</option>
+                          <option value="pack">Pack - Se convertirá a "u"</option>
+                        </select>
+                        {currentPresentation.unit && 
+                         !['kg', 'u', 'l', 'g', 'paq'].includes(currentPresentation.unit.toLowerCase()) && (
+                          <div style={{
+                            fontSize: '11px',
+                            color: '#9c4221',
+                            backgroundColor: '#fff7ed',
+                            padding: '5px 8px',
+                            borderRadius: '4px',
+                            marginTop: '3px'
+                          }}>
+                            <span style={{ fontWeight: 'bold' }}>Nota:</span> La unidad "{currentPresentation.unit}" 
+                            se convertirá a "u" (unidad) en el sistema, pero el nombre de presentación mantendrá 
+                            la información completa.
+                          </div>
+                        )}
+                      </div>
                     </div>
                     <button
                       type="button"
@@ -4102,14 +4291,81 @@ function AdminDashboard({
                 />
               </FormGroup>
               
+              {/* Progress indicator for multi-product creation */}
+              {multiProductProgress.inProgress && (
+                <div style={{
+                  marginTop: '20px',
+                  padding: '15px',
+                  backgroundColor: '#f0f9ff',
+                  borderRadius: '8px',
+                  border: '1px solid #bfdbfe'
+                }}>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    marginBottom: '10px'
+                  }}>
+                    <span style={{ fontWeight: '600', color: '#1e40af' }}>
+                      Creando productos ({multiProductProgress.completed} de {multiProductProgress.total})
+                    </span>
+                    <span style={{ color: '#3b82f6' }}>
+                      {Math.round((multiProductProgress.completed / multiProductProgress.total) * 100)}%
+                    </span>
+                  </div>
+                  <div style={{
+                    height: '10px',
+                    backgroundColor: '#dbeafe',
+                    borderRadius: '5px',
+                    overflow: 'hidden'
+                  }}>
+                    <div
+                      style={{
+                        height: '100%',
+                        width: `${(multiProductProgress.completed / multiProductProgress.total) * 100}%`,
+                        backgroundColor: '#3b82f6',
+                        borderRadius: '5px',
+                        transition: 'width 0.3s ease'
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+              
               <ModalActions>
-                <button type="button" className="btn btn-secondary" onClick={closeProductModal}>
+                <button 
+                  type="button" 
+                  className="btn btn-secondary" 
+                  onClick={closeProductModal}
+                  disabled={multiProductProgress.inProgress}
+                >
                   <X size={16} />
                   Cancelar
                 </button>
-                <button type="submit" className="btn btn-primary">
-                  <Save size={16} />
-                  {editingProduct ? 'Actualizar Producto' : 'Crear Producto'}
+                <button 
+                  type="submit" 
+                  className="btn btn-primary"
+                  disabled={multiProductProgress.inProgress}
+                >
+                  {multiProductProgress.inProgress ? (
+                    <>
+                      <span style={{ 
+                        display: 'inline-block',
+                        width: '16px',
+                        height: '16px',
+                        border: '2px solid white',
+                        borderTopColor: 'transparent',
+                        borderRadius: '50%',
+                        animation: 'spin 1s linear infinite'
+                      }}></span>
+                      Procesando...
+                    </>
+                  ) : (
+                    <>
+                      <Save size={16} />
+                      {editingProduct ? 'Actualizar Producto' : 'Crear Producto'}
+                    </>
+                  )}
                 </button>
               </ModalActions>
             </form>
