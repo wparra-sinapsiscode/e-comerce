@@ -3401,6 +3401,80 @@ function AdminDashboard({
               </StatCard>
             </StatCards>
             
+            {/* 🚚 ALERTA DE ÓRDENES DE COMPRA ACTIVAS */}
+            {(() => {
+              // Contar órdenes de compra activas (con pago verificado, en preparación o listas para envío)
+              const activeOrders = safeOrders.filter(order => 
+                (order.payment_status === 'VERIFIED' || 
+                 order.status === 'PREPARING' || 
+                 order.status === 'preparing' ||
+                 order.status === 'READY_FOR_SHIPPING' || 
+                 order.status === 'ready_for_shipping') &&
+                order.status !== 'DELIVERED' && 
+                order.status !== 'delivered' &&
+                order.status !== 'CANCELLED' && 
+                order.status !== 'cancelled'
+              ).length;
+              
+              if (activeOrders > 0) {
+                return (
+                  <div style={{ 
+                    backgroundColor: '#ecfdf5', 
+                    border: '2px solid #10b981',
+                    borderRadius: 'var(--radius)', 
+                    padding: '20px', 
+                    margin: '20px 0',
+                    boxShadow: 'var(--shadow)' 
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                      <div style={{ 
+                        backgroundColor: '#10b981', 
+                        color: 'white', 
+                        borderRadius: '50%', 
+                        padding: '10px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}>
+                        <ClipboardList size={24} />
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <h3 style={{ margin: '0 0 5px 0', color: '#065f46', fontSize: '18px', fontWeight: '600' }}>
+                          🚚 {activeOrders} Orden{activeOrders > 1 ? 'es' : ''} de Compra Activa{activeOrders > 1 ? 's' : ''} - Lista{activeOrders > 1 ? 's' : ''} para Entrega
+                        </h3>
+                        <p style={{ margin: '0', color: '#047857', fontSize: '14px' }}>
+                          Hay órdenes de compra que requieren seguimiento. Revisa la sección de Historial para más detalles.
+                        </p>
+                      </div>
+                      <button 
+                        style={{
+                          backgroundColor: '#10b981',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '8px',
+                          padding: '12px 20px',
+                          cursor: 'pointer',
+                          fontWeight: '600',
+                          fontSize: '14px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          transition: 'all 0.2s'
+                        }}
+                        onClick={() => setActiveTab('payments')}
+                        onMouseOver={(e) => e.target.style.backgroundColor = '#059669'}
+                        onMouseOut={(e) => e.target.style.backgroundColor = '#10b981'}
+                      >
+                        <ClipboardList size={16} />
+                        Ver Órdenes
+                      </button>
+                    </div>
+                  </div>
+                );
+              }
+              return null;
+            })()}
+
             {/* 🚨 ALERTA DE PAGOS PENDIENTES */}
             {pendingPayments > 0 && (
               <div style={{ 
