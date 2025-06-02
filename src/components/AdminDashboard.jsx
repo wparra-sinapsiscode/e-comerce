@@ -4,7 +4,9 @@ import { Home, Tags, Package, ClipboardList, CreditCard, LogOut, Search, Plus, E
 
 // Importar componente de visualización de estado en español
 import OrderStatusBadge from './OrderStatusBadge'
-import { getStateLabel, getStateColor } from '../utils/stateTranslation'
+// Renombramos la importación para evitar conflicto con un componente styled existente
+import { default as PaymentMethodDisplay } from './PaymentMethodBadge'
+import { getStateLabel, getStateColor, getPaymentMethodLabel } from '../utils/stateTranslation'
 
 const AdminSection = styled.section`
   display: flex;
@@ -1887,11 +1889,13 @@ function AdminDashboard({
   ]
 
   const getStatusText = (status, order) => {
-    // If payment is verified but order is still awaiting_payment, show "Pago Verificado"
+    // Si el pago está verificado pero el pedido aún está en espera de pago, mostrar "Pago Verificado"
     if (status.toLowerCase() === 'awaiting_payment' && order?.payment_status === 'VERIFIED') {
       return 'Pago Verificado'
     }
-    return orderStatuses[status]?.label || status
+    
+    // Usar la traducción centralizada
+    return getStateLabel(status) || status;
   }
 
   const getStatusColor = (status) => {
@@ -2196,7 +2200,7 @@ function AdminDashboard({
               gap: '6px'
             }}>
               <AlertCircle size={14} />
-              {payment.voucher ? 'Click para verificar pago' : 'Click para verificar pago en efectivo'}
+              {payment.voucher ? 'Click para verificar pago' : 'Click para verificar pago del cliente'}
             </div>
           )}
           {(order.status === 'CANCELLED' || order.status === 'cancelled') && (
@@ -2207,14 +2211,9 @@ function AdminDashboard({
     )
   }
 
+  // Esta función se mantiene para compatibilidad con código existente
   const getPaymentMethodText = (method) => {
-    switch (method) {
-      case 'transfer': return 'Transferencia bancaria'
-      case 'yape': return 'Yape'
-      case 'plin': return 'Plin'
-      case 'cod': return 'Pago contra entrega'
-      default: return method
-    }
+    return getPaymentMethodLabel(method) || method;
   }
 
   const formatDate = (dateString) => {
@@ -3456,7 +3455,7 @@ function AdminDashboard({
                       <td>{order.customer_name || order.customer || 'Sin nombre'}</td>
                       <td>{formatDate(order.date)}</td>
                       <td>S/ {formatPrice(order.total)}</td>
-                      <td><Status className={order.payment_status === 'VERIFIED' ? 'payment_verified' : order.status}>{getStatusText(order.status, order)}</Status></td>
+                      <td><OrderStatusBadge status={order.status} size="small" /></td>
                       <td>{getOrderActions(order)}</td>
                     </tr>
                   ))}
@@ -3684,9 +3683,7 @@ function AdminDashboard({
                           </Status>
                         )}
                       </td>
-                      <td><Status className={order.payment_status === 'VERIFIED' ? 'completed' : 'pending'}>
-                        {order.payment_status === 'VERIFIED' ? 'Verificado' : 'Pendiente'}
-                      </Status></td>
+                      <td><OrderStatusBadge status={order.payment_status} size="small" /></td>
                       <td>{renderWorkflowVisualizer(order)}</td>
                     </tr>
                   ))}
@@ -3721,17 +3718,9 @@ function AdminDashboard({
                       <td>{payment.customer}</td>
                       <td>{formatDate(payment.date)}</td>
                       <td>S/ {formatPrice(payment.amount)}</td>
-                      <td>{getPaymentMethodText(payment.method)}</td>
+                      <td><PaymentMethodDisplay method={payment.method} size="small" /></td>
                       <td>
-                        <Status className={
-                          payment.status === 'VERIFIED' ? 'completed' : 
-                          payment.status === 'REJECTED' ? 'pending' : 'pending'
-                        } style={
-                          payment.status === 'REJECTED' ? { background: '#fee2e2', color: '#dc2626' } : {}
-                        }>
-                          {payment.status === 'VERIFIED' ? 'Verificado' : 
-                           payment.status === 'REJECTED' ? 'Rechazado' : 'Pendiente'}
-                        </Status>
+                        <OrderStatusBadge status={payment.status} size="small" />
                       </td>
                       <td>
                         {payment.voucher ? (
@@ -4240,23 +4229,14 @@ function AdminDashboard({
                 <DetailCard>
                   <div className="detail-label">Método de Pago</div>
                   <div className="detail-value">
-                    <PaymentMethodBadge className={selectedPayment.method?.toLowerCase()}>
-                      {getPaymentMethodIcon(selectedPayment.method)}
-                      {getPaymentMethodText(selectedPayment.method)}
-                    </PaymentMethodBadge>
+                    <PaymentMethodDisplay method={selectedPayment.method} size="medium" />
                   </div>
                 </DetailCard>
 
                 <DetailCard className="status-card">
                   <div className="detail-label">Estado del Pago</div>
                   <div className="detail-value">
-                    <StatusBadge className={selectedPayment.status?.toLowerCase() || 'pending'}>
-                      {selectedPayment.status === 'VERIFIED' && <Check size={16} />}
-                      {selectedPayment.status === 'REJECTED' && <XCircle size={16} />}
-                      {selectedPayment.status === 'PENDING' && <Clock size={16} />}
-                      {selectedPayment.status === 'VERIFIED' ? 'Verificado' : 
-                       selectedPayment.status === 'REJECTED' ? 'Rechazado' : 'Pendiente'}
-                    </StatusBadge>
+                    <OrderStatusBadge status={selectedPayment.status} size="medium" />
                   </div>
                 </DetailCard>
 

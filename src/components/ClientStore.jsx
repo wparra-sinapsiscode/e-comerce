@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, memo } from 'react'
+import { getPaymentMethodLabel } from '../utils/stateTranslation'
 import styled from 'styled-components'
 import { Store, Menu, Search, ShoppingCart, User, LogOut, Home, Tags, ClipboardList, Plus, Minus, Eye, ArrowLeft, MapPin, Phone, CreditCard, Smartphone, DollarSign, Truck, CheckCircle, X, Info, Upload, Image, FileText, Filter, Heart, Star, Zap } from 'lucide-react'
 import { getUnitConfig, formatQuantity, validateQuantity } from '../data/sampleData'
@@ -1838,7 +1839,7 @@ function ClientStore({
         <PaymentDetails>
           <h4>
             <DollarSign size={20} />
-            Pago contraentrega
+            {getPaymentMethodLabel('CASH')}
           </h4>
           <div className="instruction">
             <Info size={16} style={{ marginRight: '8px', verticalAlign: 'text-top' }} />
@@ -3057,7 +3058,7 @@ function ClientStore({
                     onClick={() => handleInputChange('paymentMethod', 'TRANSFER')}
                   >
                     <CreditCard size={20} />
-                    <span>Transferencia</span>
+                    <span>{getPaymentMethodLabel('TRANSFER')}</span>
                   </PaymentMethod>
                   <PaymentMethod 
                     $active={checkoutData.paymentMethod === 'YAPE'}
@@ -3132,10 +3133,7 @@ function ClientStore({
                   <p><strong>Teléfono:</strong> {confirmedOrder.phone}</p>
                   <p><strong>Dirección:</strong> {confirmedOrder.address}</p>
                   <p><strong>Método de pago:</strong> {
-                    confirmedOrder.payment_method === 'TRANSFER' ? 'Transferencia' :
-                    confirmedOrder.payment_method === 'YAPE' ? 'Yape' :
-                    confirmedOrder.payment_method === 'PLIN' ? 'Plin' :
-                    'Contraentrega'
+                    getPaymentMethodLabel(confirmedOrder.payment_method)
                   }</p>
                   <p><strong>Total:</strong> S/ {formatPrice(confirmedOrder.total)}</p>
                   {confirmedOrder.voucher && (

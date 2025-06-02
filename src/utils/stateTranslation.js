@@ -20,7 +20,15 @@ export const stateLabels = {
   'ready_for_shipping': 'Listo para Envío',
   'shipped': 'Enviado',
   'delivered': 'Entregado',
-  'cancelled': 'Cancelado'
+  'cancelled': 'Cancelado',
+  
+  // Estados de pago
+  'PENDING': 'Pendiente',
+  'VERIFIED': 'Verificado',
+  'REJECTED': 'Rechazado',
+  'pending': 'Pendiente',
+  'verified': 'Verificado',
+  'rejected': 'Rechazado'
 };
 
 // Colores para cada estado (mantiene los mismos colores originales)
@@ -39,7 +47,43 @@ export const stateColors = {
   'ready_for_shipping': '#8b5cf6',
   'shipped': '#06b6d4',
   'delivered': '#10b981',
-  'cancelled': '#ef4444'
+  'cancelled': '#ef4444',
+  
+  // Estados de pago
+  'PENDING': '#f59e0b',    // Amarillo/naranja
+  'VERIFIED': '#10b981',   // Verde
+  'REJECTED': '#ef4444',   // Rojo
+  'pending': '#f59e0b',
+  'verified': '#10b981',
+  'rejected': '#ef4444'
+};
+
+// Métodos de pago en español
+export const paymentMethodLabels = {
+  // Métodos en MAYÚSCULAS
+  'TRANSFER': 'Transferencia',
+  'YAPE': 'Yape',
+  'PLIN': 'Plin',
+  'CASH': 'Efectivo',
+  
+  // Métodos en minúsculas (para compatibilidad)
+  'transfer': 'Transferencia',
+  'yape': 'Yape',
+  'plin': 'Plin',
+  'cash': 'Efectivo'
+};
+
+// Colores para métodos de pago
+export const paymentMethodColors = {
+  'TRANSFER': '#2563eb',  // Azul
+  'YAPE': '#722f9e',      // Púrpura
+  'PLIN': '#00a651',      // Verde
+  'CASH': '#16a34a',      // Verde más oscuro
+  
+  'transfer': '#2563eb',
+  'yape': '#722f9e',
+  'plin': '#00a651',
+  'cash': '#16a34a'
 };
 
 /**
@@ -58,4 +102,22 @@ export function getStateLabel(state) {
  */
 export function getStateColor(state) {
   return stateColors[state] || '#6b7280'; // Gris por defecto
+}
+
+/**
+ * Obtiene la etiqueta en español para un método de pago
+ * @param {string} method - Método de pago en inglés
+ * @returns {string} Etiqueta en español
+ */
+export function getPaymentMethodLabel(method) {
+  return paymentMethodLabels[method] || method;
+}
+
+/**
+ * Obtiene el color correspondiente al método de pago
+ * @param {string} method - Método de pago (en inglés)
+ * @returns {string} Código de color
+ */
+export function getPaymentMethodColor(method) {
+  return paymentMethodColors[method] || '#6b7280'; // Gris por defecto
 }
