@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, memo } from 'react'
 import styled from 'styled-components'
-import { Home, Tags, Package, ClipboardList, CreditCard, LogOut, Search, Plus, Edit, Trash2, Eye, X, Save, Upload, Image as ImageIcon, Apple, Beef, Fish, Carrot, Milk, Wheat, Wine, ShoppingBasket, Coffee, Egg, Droplets, Zap, Flower2, Soup, Utensils, Check, XCircle, Clock, AlertCircle, ZoomIn, ArrowRight, Truck, Package2, Link, Camera, User, DollarSign, Printer } from 'lucide-react'
+import { Home, Tags, Package, ClipboardList, CreditCard, LogOut, Search, Plus, Edit, Trash2, Eye, X, Save, Upload, Image as ImageIcon, Apple, Beef, Fish, Carrot, Milk, Wheat, Wine, ShoppingBasket, Coffee, Egg, Droplets, Zap, Flower2, Soup, Utensils, Check, XCircle, Clock, AlertCircle, ZoomIn, ArrowRight, Truck, Package2, Link, Camera, User, DollarSign, Printer, FileText } from 'lucide-react'
 
 // Importar componente de visualización de estado en español
 import OrderStatusBadge from './OrderStatusBadge'
@@ -229,76 +229,6 @@ const SearchBar = styled.div`
   }
 `
 
-const UserProfile = styled.div`
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-  
-  span {
-    margin-right: var(--spacing-sm);
-    font-weight: 500;
-    
-    @media (max-width: 768px) {
-      display: none;
-    }
-  }
-`
-
-const ProfileImg = styled.div`
-  width: 40px;
-  height: 40px;
-  background-color: var(--primary-color);
-  color: white;
-  border-radius: var(--radius-full);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 600;
-  box-shadow: 0 2px 10px rgba(255, 87, 34, 0.3);
-  
-  @media (max-width: 576px) {
-    width: 36px;
-    height: 36px;
-  }
-`
-
-const UserDropdown = styled.div`
-  position: absolute;
-  top: 60px;
-  right: var(--spacing-md);
-  background-color: white;
-  box-shadow: var(--shadow-lg);
-  border-radius: var(--radius);
-  width: 200px;
-  display: none;
-  z-index: 95;
-  overflow: hidden;
-  
-  ${UserProfile}:hover & {
-    display: block;
-  }
-  
-  ul {
-    list-style: none;
-  }
-  
-  li {
-    padding: var(--spacing-sm) var(--spacing-md);
-    display: flex;
-    align-items: center;
-    transition: var(--transition);
-    cursor: pointer;
-    
-    &:hover {
-      background-color: var(--gray-lighter);
-    }
-    
-    svg {
-      margin-right: var(--spacing-sm);
-      color: var(--gray);
-    }
-  }
-`
 
 const SearchToggle = styled.button`
   display: none;
@@ -3326,10 +3256,6 @@ function AdminDashboard({
             <Search size={16} />
             <input type="text" placeholder="Buscar..." />
           </SearchBar>
-          <UserProfile>
-            <span>Admin</span>
-            <ProfileImg>A</ProfileImg>
-          </UserProfile>
         </Header>
 
         <div>
@@ -4650,16 +4576,209 @@ function AdminDashboard({
                   <button 
                     className="action-btn"
                     style={{
-                      backgroundColor: '#10b981',
+                      backgroundColor: '#3b82f6',
                       color: 'white'
                     }}
                     onClick={() => {
-                      // Implementar funcionalidad de impresión (para futura implementación)
-                      window.print();
+                      // Exportar a PDF
+                      try {
+                        // Notificar al usuario que el PDF se está generando
+                        showToast('Generando PDF, espere un momento...', 'info');
+                        
+                        // Crear un nombre para el archivo
+                        const fileName = `Orden_${selectedOrder.id}_${new Date().toISOString().slice(0, 10)}.pdf`;
+                        
+                        // Esta es una implementación simple que abre la ventana de impresión
+                        // con la opción de guardar como PDF
+                        const printWindow = window.open('', '_blank');
+                        
+                        // Preparar el contenido HTML para el PDF
+                        let htmlContent = `
+                          <!DOCTYPE html>
+                          <html>
+                          <head>
+                            <title>Orden de Compra - ${selectedOrder.id}</title>
+                            <style>
+                              body { font-family: Arial, sans-serif; padding: 20px; }
+                              .header { text-align: center; margin-bottom: 20px; }
+                              .title { font-size: 22px; font-weight: bold; margin-bottom: 5px; }
+                              .subtitle { font-size: 16px; color: #666; }
+                              .section { margin-bottom: 20px; border: 1px solid #eee; padding: 15px; border-radius: 5px; }
+                              .section-title { font-size: 18px; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px solid #eee; }
+                              .customer-info { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+                              .customer-field { margin-bottom: 8px; }
+                              .field-label { font-size: 12px; color: #666; margin-bottom: 3px; }
+                              .field-value { font-weight: 500; }
+                              .products { width: 100%; border-collapse: collapse; margin-top: 10px; }
+                              .products th, .products td { padding: 8px; text-align: left; border-bottom: 1px solid #eee; }
+                              .products th { background-color: #f9fafb; }
+                              .total-section { margin-top: 20px; text-align: right; font-weight: bold; }
+                              .warning { color: #b91c1c; font-weight: bold; text-align: center; margin: 20px 0; padding: 10px; border: 2px solid #ef4444; border-radius: 5px; }
+                            </style>
+                          </head>
+                          <body>
+                            <div class="header">
+                              <div class="title">ORDEN DE COMPRA</div>
+                              <div class="subtitle">ID: ${selectedOrder.id}</div>
+                              <div class="subtitle">Fecha: ${formatDate(selectedOrder.date)}</div>
+                            </div>
+                            
+                            <div class="section">
+                              <div class="section-title">Información del Cliente</div>
+                              <div class="customer-info">
+                                <div class="customer-field">
+                                  <div class="field-label">Nombre</div>
+                                  <div class="field-value">${selectedOrder.customer_name}</div>
+                                </div>
+                                <div class="customer-field">
+                                  <div class="field-label">Teléfono</div>
+                                  <div class="field-value">${selectedOrder.customer_phone}</div>
+                                </div>
+                        `;
+                        
+                        // Agregar correo si existe
+                        if (selectedOrder.customer_email) {
+                          htmlContent += `
+                                <div class="customer-field">
+                                  <div class="field-label">Email</div>
+                                  <div class="field-value">${selectedOrder.customer_email}</div>
+                                </div>
+                          `;
+                        }
+                        
+                        // Agregar dirección
+                        htmlContent += `
+                                <div class="customer-field">
+                                  <div class="field-label">Dirección</div>
+                                  <div class="field-value">${selectedOrder.customer_address}</div>
+                                </div>
+                        `;
+                        
+                        // Agregar referencia si existe
+                        if (selectedOrder.customer_reference) {
+                          htmlContent += `
+                                <div class="customer-field">
+                                  <div class="field-label">Referencia</div>
+                                  <div class="field-value">${selectedOrder.customer_reference}</div>
+                                </div>
+                          `;
+                        }
+                        
+                        htmlContent += `
+                              </div>
+                            </div>
+                        `;
+                        
+                        // Agregar mensaje de NO COBRAR para pagos electrónicos
+                        if (['TRANSFER', 'YAPE', 'PLIN'].includes(selectedPayment.method)) {
+                          htmlContent += `
+                            <div class="warning">
+                              ⚠️ PAGO YA REALIZADO - NO COBRAR ⚠️<br>
+                              Este pedido ya ha sido pagado mediante ${getPaymentMethodLabel(selectedPayment.method)}.
+                            </div>
+                          `;
+                        }
+                        
+                        // Agregar productos
+                        htmlContent += `
+                          <div class="section">
+                            <div class="section-title">Productos</div>
+                            <table class="products">
+                              <thead>
+                                <tr>
+                                  <th>Producto</th>
+                                  <th>Cantidad</th>
+                        `;
+                        
+                        // Agregar columnas de precio solo para pagos contra entrega
+                        if (selectedPayment.method === 'CASH') {
+                          htmlContent += `
+                                  <th>Precio</th>
+                                  <th>Subtotal</th>
+                          `;
+                        }
+                        
+                        htmlContent += `
+                                </tr>
+                              </thead>
+                              <tbody>
+                        `;
+                        
+                        // Agregar cada producto
+                        selectedOrder.items.forEach(item => {
+                          htmlContent += `
+                            <tr>
+                              <td>${item.product_name}</td>
+                              <td>${parseFloat(item.quantity)}</td>
+                          `;
+                          
+                          // Agregar precio y subtotal solo para pagos contra entrega
+                          if (selectedPayment.method === 'CASH') {
+                            htmlContent += `
+                              <td>S/ ${formatPrice(item.price)}</td>
+                              <td>S/ ${formatPrice(item.total)}</td>
+                            `;
+                          }
+                          
+                          htmlContent += `</tr>`;
+                        });
+                        
+                        htmlContent += `
+                              </tbody>
+                            </table>
+                        `;
+                        
+                        // Agregar totales solo para pagos contra entrega
+                        if (selectedPayment.method === 'CASH') {
+                          htmlContent += `
+                            <div class="total-section">
+                              <div>Subtotal: S/ ${formatPrice(selectedOrder.subtotal)}</div>
+                              <div>IGV (18%): S/ ${formatPrice(selectedOrder.tax)}</div>
+                              <div style="font-size: 18px; margin-top: 5px;">TOTAL A COBRAR: S/ ${formatPrice(selectedOrder.total)}</div>
+                            </div>
+                          `;
+                        }
+                        
+                        htmlContent += `
+                          </div>
+                        `;
+                        
+                        // Agregar notas si existen
+                        if (selectedOrder.notes) {
+                          htmlContent += `
+                            <div class="section">
+                              <div class="section-title">Notas Adicionales</div>
+                              <div>${selectedOrder.notes}</div>
+                            </div>
+                          `;
+                        }
+                        
+                        // Cerrar el HTML
+                        htmlContent += `
+                          </body>
+                          </html>
+                        `;
+                        
+                        // Escribir el contenido en la nueva ventana
+                        printWindow.document.write(htmlContent);
+                        printWindow.document.close();
+                        
+                        // Esperar a que la ventana cargue completamente
+                        printWindow.onload = function() {
+                          // Abrir el diálogo de impresión
+                          printWindow.print();
+                          
+                          // La mayoría de los navegadores mostrarán la opción "Guardar como PDF"
+                          // en el diálogo de impresión
+                        };
+                      } catch (error) {
+                        console.error('Error al generar PDF:', error);
+                        showToast('Error al generar el PDF: ' + error.message, 'error');
+                      }
                     }}
                   >
-                    <Printer size={20} />
-                    Imprimir Orden de Compra
+                    <FileText size={20} />
+                    Orden de Compra PDF
                   </button>
                 </StatusActions>
               )}
