@@ -1909,7 +1909,7 @@ function ClientStore({
         customer_name: checkoutData.name,
         customer_phone: checkoutData.phone,
         customer_address: checkoutData.address,
-        customer_reference: checkoutData.reference,
+        customer_reference: checkoutData.reference, // Asegurarse de que este campo se envía al backend
         payment_method: checkoutData.paymentMethod,
         notes: checkoutData.notes,
         items: cart.map(item => ({

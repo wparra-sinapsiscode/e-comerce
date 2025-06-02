@@ -56,6 +56,7 @@ export const OrderSchema = z.object({
   customer_phone: z.string().min(9, 'Teléfono inválido').max(15),
   customer_email: z.string().email().optional().nullable(),
   customer_address: z.string().min(10, 'Dirección muy corta').max(200),
+  customer_reference: z.string().max(200).optional().nullable(),
   date: z.string().datetime(),
   status: OrderStatusSchema,
   payment_method: PaymentMethodSchema,
@@ -87,6 +88,7 @@ export const CreateOrderSchema = z.object({
   customer_phone: z.string().min(9, 'Teléfono inválido').max(15),
   customer_email: z.string().email().optional().nullable(),
   customer_address: z.string().min(10, 'Dirección muy corta').max(200),
+  customer_reference: z.string().max(200).optional().nullable(),
   payment_method: PaymentMethodSchema,
   items: z.array(z.object({
     product_id: z.number().int().positive(),
